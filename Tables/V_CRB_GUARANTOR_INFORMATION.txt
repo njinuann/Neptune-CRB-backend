@@ -1,0 +1,306 @@
+
+/* Formatted on 29/05/2019 12:44:18 (QP5 v5.114.809.3010) */
+--SELECT * FROM V_CRB_GUARANTOR_INFORMATION
+CREATE OR REPLACE FORCE VIEW wakulimatest.V_CRB_GUARANTOR_INFORMATION
+(
+lenders_registered_name,
+  lenders_trading_name,
+   lenders_branch_name,
+   lenders_branch_code,
+   client_number,
+   company_name,
+   SURNAME,
+   email,
+   FORENAME1,
+   FORENAME2,
+   FORNAME3,
+   dob_or_reg_date,
+   gender,
+   nationality,
+   marital_status,
+   guarantee_type,
+   group_name,
+   guarantor_relationship,
+   guarantee_limit,
+   primary_id_doc_type,
+   primary_id_doc_no,
+   secondary_id_doc,
+   secondary_id_doc_no,
+   other_id_doc_type,
+   other_id_doc_no,
+   employee_name,
+   employment_type,
+   salary_band,
+   mobile_telephone_number,
+   home_telephone_number,
+   work_telephone_number,
+   postal_address1,
+   postal_address2,
+   town,
+   country,
+   post_code,
+   physical_address1,
+   physical_address2,
+   plot_number,
+   physical_location_town,
+   physical_location_country 
+)
+AS
+SELECT  
+lenders_registered_name,
+  lenders_trading_name,
+   lenders_branch_name,
+   lenders_branch_code,
+   client_number,
+   company_name,
+   SURNAME,
+   email,
+   FORENAME1,
+   FORENAME2,
+   FORNAME3,
+   dob_or_reg_date,
+   gender,
+   nationality,
+   marital_status,
+   guarantee_type,
+   group_name,
+   guarantor_relationship,
+   guarantee_limit,
+   primary_id_doc_type,
+   primary_id_doc_no,
+   secondary_id_doc,
+   secondary_id_doc_no,
+   other_id_doc_type,
+   other_id_doc_no,
+   employee_name,
+   employment_type,
+   salary_band,
+   mobile_telephone_number,
+   home_telephone_number,
+   work_telephone_number,
+   postal_address1,
+   postal_address2,
+   town,
+   country,
+   post_code,
+   physical_address1,
+   physical_address2,
+   plot_number,
+   physical_location_town,
+   physical_location_country 
+   FROM (
+   SELECT   DISTINCT
+            (SELECT   param_value
+               FROM   ctrl_parameter
+              WHERE   param_cd = 'S04')
+               AS lenders_registered_name,
+            (SELECT   param_value
+               FROM   ctrl_parameter
+              WHERE   param_cd = 'S04')
+               AS lenders_trading_name,
+            A.BU_NM AS lenders_branch_name,
+            ('N179' || (LPAD (A.BU_NO, 3, '0'))) AS lenders_branch_code,
+            C.CUST_NO AS client_number,
+           '' AS  company_name,
+           '' AS email,
+            D.ACCT_NO AS ACCOUNT_NUMBER,
+            B.LAST_NM AS SURNAME,
+            B.FIRST_NM AS FORENAME1,
+            B.LAST_NM AS FORENAME2,
+            B.PREF_FIRST_NM AS FORNAME3,
+            B.BIRTH_DT AS dob_or_reg_date,
+            B.GENDER_TY AS gender,
+            CASE
+               WHEN F.NATIONALITY_DESC = 'KENYAN' THEN 'KE'
+               WHEN F.NATIONALITY_DESC = 'UGANDAN' THEN 'UG'
+               WHEN F.NATIONALITY_DESC = 'TANZANIAN' THEN 'TZ'
+               WHEN F.NATIONALITY_DESC = 'RWANDESE' THEN 'RW'
+               WHEN F.NATIONALITY_DESC = 'SUDANESE' THEN 'SD'
+               WHEN F.NATIONALITY_DESC = 'BURUNDIAN' THEN 'BI'
+               WHEN F.NATIONALITY_DESC = 'ETHIOPIAN' THEN 'ET'
+               WHEN F.NATIONALITY_DESC = 'INDIAN' THEN 'IN'
+            END
+               AS nationality,
+            '' AS marital_status,
+            'B' AS guarantee_type,
+            (SELECT   o.organisation_nm
+               FROM   group_member gm, organisation o
+              WHERE       c.cust_id = gm.member_cust_id
+                      AND gm.group_cust_id = o.cust_id
+                      AND gm.rec_st = 'Active')
+               AS group_name,
+            'C' AS guarantor_relationship,
+            LTRIM ( (TO_CHAR (E.GUARANTEED_AMT, '999999999999.99')))
+               AS guarantee_limit,
+            LPAD (1, 3, '0') AS primary_id_doc_type,
+            B.SOCIAL_SECURITY_NO AS primary_id_doc_no,
+            '' AS secondary_id_doc,
+            '' AS secondary_id_doc_no,
+            '' AS other_id_doc_type,
+            '' AS other_id_doc_no,
+            '' AS employee_name,
+            '' AS employment_type,
+            '' AS salary_band, 
+            (SELECT   contact
+               FROM   CUSTOMER_CONTACT_MODE
+              WHERE   cust_id = c.cust_id AND CONTACT_MODE_ID IN (256))
+               AS mobile_telephone_number,
+            '' AS home_telephone_number,
+            '' AS work_telephone_number,
+            H.ADDR_LINE_1 AS postal_address1,
+            H.ADDR_LINE_2 AS postal_address2,
+            H.CITY AS town,
+            CASE
+               WHEN I.CNTRY_NM = 'KENYA' THEN 'KE'
+               WHEN I.CNTRY_NM = 'UGANDA' THEN 'UG'
+               WHEN I.CNTRY_NM = 'TANZANIA' THEN 'TZ'
+               WHEN I.CNTRY_NM = 'RWANDA' THEN 'RW'
+               WHEN I.CNTRY_NM = 'SUDAN' THEN 'SD'
+               WHEN I.CNTRY_NM = 'BURUNDI' THEN 'BI'
+               WHEN I.CNTRY_NM = 'ETHIOPIA' THEN 'ET'
+               WHEN I.CNTRY_NM = 'INDIA' THEN 'IN'
+            END
+               AS country,
+            H.POSTCD AS post_code,
+            H.STATE AS physical_address1,
+            '' AS physical_address2,
+            '' AS plot_number,
+            H.STATE AS physical_location_town,
+            CASE
+               WHEN I.CNTRY_NM = 'KENYA' THEN 'KE'
+               WHEN I.CNTRY_NM = 'UGANDA' THEN 'UG'
+               WHEN I.CNTRY_NM = 'TANZANIA' THEN 'TZ'
+               WHEN I.CNTRY_NM = 'RWANDA' THEN 'RW'
+               WHEN I.CNTRY_NM = 'SUDAN' THEN 'SD'
+               WHEN I.CNTRY_NM = 'BURUNDI' THEN 'BI'
+               WHEN I.CNTRY_NM = 'ETHIOPIA' THEN 'ET'
+               WHEN I.CNTRY_NM = 'INDIA' THEN 'IN'
+            END
+               AS physical_location_country
+     FROM   BUSINESS_UNIT A,
+            PERSON B,
+            CUSTOMER C,
+            ACCOUNT D,
+            GUARANTOR E, 
+            NATIONALITY_REF F,
+            --CUSTOMER_CONTACT_MODE G,
+            ADDRESS H,
+            COUNTRY I,
+            CUSTOMER_ADDRESS J
+    WHERE       C.CUST_ID = D.CUST_ID
+            AND B.CUST_ID = C.CUST_ID
+            AND B.CUST_ID = D.CUST_ID
+            AND E.GUARANTOR_ID = C.CUST_ID
+            AND A.BU_ID = C.MAIN_BRANCH_ID
+            AND B.NATIONALITY_ID = F.NATIONALITY_ID
+            AND H.CNTRY_ID = I.CNTRY_ID
+            -- AND G.CUST_ID = C.CUST_ID
+            AND H.ADDR_ID = J.ADDR_ID
+            AND C.CUST_ID = J.CUST_ID
+            AND C.CUST_TY_ID IN (select CUST_TY_ID FROM customer_type_ref WHERE CUST_CAT = 'PER')
+   --for non individual customer
+   UNION ALL
+   SELECT   DISTINCT
+            (SELECT   param_value
+               FROM   ctrl_parameter
+              WHERE   param_cd = 'S04')
+               AS LENDERS_REG_NAME,
+            (SELECT   param_value
+               FROM   ctrl_parameter
+              WHERE   param_cd = 'S04')
+               AS LENDERS_TRADING_NAME,
+            A.BU_NM AS LENDERS_BRANCH_NAME,
+            ('N179' || (LPAD (A.BU_NO, 3, '0'))) AS LENDERS_BRANCH_CODE,
+            C.CUST_NO AS CLIENT_NUMBER,
+             '' AS  company_name,
+           '' AS email,
+            D.ACCT_NO AS ACCOUNT_NUMBER,
+            B.ORGANISATION_NM AS SURNAME,
+            NULL AS FORENAME_1,
+            NULL AS FORENAME_2,
+            NULL AS FORNAME_3,
+            B.REGISTRATION_DT AS DATE_OF_BIRTH,
+            'M' AS GENDER,
+            CASE
+               WHEN I.CNTRY_NM = 'KENYA' THEN 'KE'
+               WHEN I.CNTRY_NM = 'UGANDA' THEN 'UG'
+               WHEN I.CNTRY_NM = 'TANZANIA' THEN 'TZ'
+               WHEN I.CNTRY_NM = 'RWANDA' THEN 'RW'
+               WHEN I.CNTRY_NM = 'SUDAN' THEN 'SD'
+               WHEN I.CNTRY_NM = 'BURUNDI' THEN 'BI'
+               WHEN I.CNTRY_NM = 'ETHIOPIA' THEN 'ET'
+               WHEN I.CNTRY_NM = 'INDIA' THEN 'IN'
+            END
+               AS NATIONALITY,
+            NULL AS MARITAL_STATUS,
+            'B' AS GUARANTEE_TYPE,
+            '' AS GROUP_NAME,
+            'B' AS GUARANTOR_RELATIONSHIP,
+            LTRIM ( (TO_CHAR (E.GUARANTEED_AMT, '999999999999.99')))
+               AS GUARANTEE_LIMIT,
+            LPAD (5, 3, '0') AS PRIMARY_IDENTIFICATION,
+            B.REGISTRATION_NO AS PRIMARY_IDENTIFICATION_NUMBER, 
+            '' AS secondary_id_doc,
+            '' AS secondary_id_doc_no,
+            '' AS other_id_doc_type,
+            '' AS other_id_doc_no,
+            '' AS employee_name,
+            '' AS employment_type,
+            '' AS salary_band, 
+            (SELECT   contact
+               FROM   CUSTOMER_CONTACT_MODE
+              WHERE   cust_id = c.cust_id AND CONTACT_MODE_ID IN (256))
+               AS MOBILE_NUMBER,
+            '' AS EMPTYDATA,
+            '' AS EMPTYDATA,
+            H.ADDR_LINE_1 AS POSTAL_ADDRESS_1,
+            H.ADDR_LINE_2 AS POSTAL_ADDRESS_2,
+            H.CITY AS POSTAL_LOCATION_TOWN,
+            CASE
+               WHEN I.CNTRY_NM = 'KENYA' THEN 'KE'
+               WHEN I.CNTRY_NM = 'UGANDA' THEN 'UG'
+               WHEN I.CNTRY_NM = 'TANZANIA' THEN 'TZ'
+               WHEN I.CNTRY_NM = 'RWANDA' THEN 'RW'
+               WHEN I.CNTRY_NM = 'SUDAN' THEN 'SD'
+               WHEN I.CNTRY_NM = 'BURUNDI' THEN 'BI'
+               WHEN I.CNTRY_NM = 'ETHIOPIA' THEN 'ET'
+               WHEN I.CNTRY_NM = 'INDIA' THEN 'IN'
+            END
+               AS POSTAL_LOCATION_COUNTRY,
+            H.POSTCD AS POSTAL_CODE,
+            H.STATE AS PHYSICAL_ADDESS_1,
+            '' AS EMPTYDATA,
+            '' AS EMPTYDATA,
+            H.STATE AS PHYSICAL_LOCATION_TOWN,
+            CASE
+               WHEN I.CNTRY_NM = 'KENYA' THEN 'KE'
+               WHEN I.CNTRY_NM = 'UGANDA' THEN 'UG'
+               WHEN I.CNTRY_NM = 'TANZANIA' THEN 'TZ'
+               WHEN I.CNTRY_NM = 'RWANDA' THEN 'RW'
+               WHEN I.CNTRY_NM = 'SUDAN' THEN 'SD'
+               WHEN I.CNTRY_NM = 'BURUNDI' THEN 'BI'
+               WHEN I.CNTRY_NM = 'ETHIOPIA' THEN 'ET'
+               WHEN I.CNTRY_NM = 'INDIA' THEN 'IN'
+            END
+               AS PHYSICAL_LOCATION_COUNTRY
+     FROM   BUSINESS_UNIT A,
+            ORGANISATION B, 
+            CUSTOMER C,
+            ACCOUNT D,
+            GUARANTOR E,
+            --  CUSTOMER_CONTACT_MODE G,
+            ADDRESS H,
+            COUNTRY I,
+            CUSTOMER_ADDRESS J
+    WHERE       C.CUST_ID = D.CUST_ID
+            AND B.CUST_ID = C.CUST_ID
+            AND B.CUST_ID = D.CUST_ID
+            AND E.GUARANTOR_ID = C.CUST_ID
+            AND A.BU_ID = C.MAIN_BRANCH_ID
+            AND H.CNTRY_ID = I.CNTRY_ID
+            --  AND G.CUST_ID = C.CUST_ID
+            AND H.ADDR_ID = J.ADDR_ID
+            AND C.CUST_ID = J.CUST_ID
+            AND C.CUST_TY_ID NOT IN (select CUST_TY_ID FROM customer_type_ref WHERE CUST_CAT = 'PER'));
+
+
