@@ -12,18 +12,6 @@ import java.util.Base64;
 public class HashUtil
 {
 
-    public static String generateSHA256Hash(String input)
-    {
-        try
-        {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(input.getBytes());
-            return Hex.encodeHexString(hash);
-        } catch (NoSuchAlgorithmException e)
-        {
-            throw new RuntimeException("Failed to generate SHA-256 hash", e);
-        }
-    }
 
     public static String generateSignature(String payload)
     {
@@ -39,27 +27,20 @@ public class HashUtil
         }
     }
 
-    public static String generateSignatureHmac(String valueToHash)
+    public static String generateSHA256Hash(String valueToHash)
     {
         try
         {
-            //String valueToHash = privateKey + payload + publicKey + timestamp;
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
 
-            MessageDigest digest =
-                    MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = digest.digest(
+                    valueToHash.getBytes(StandardCharsets.UTF_8)
+            );
 
-            byte[] hashBytes =
-                    digest.digest(
-                            valueToHash.getBytes(StandardCharsets.UTF_8)
-                    );
-
-            return bytesToHex(hashBytes);
+            return bytesToHex(hashBytes); // must be lowercase hex
         } catch (Exception e)
         {
-            throw new RuntimeException(
-                    "Unable to generate Metropol hash",
-                    e
-            );
+            throw new RuntimeException("Unable to generate Metropol hash", e);
         }
     }
 

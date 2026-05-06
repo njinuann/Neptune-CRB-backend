@@ -180,7 +180,7 @@ public class CRBDelinquencyService
 
     private CRBDelinquencyReport mapToReport(JSONObject json)
     {
-        String delinquencyCode = json.optString("delinquency_code", "");
+        String delinquencyCode =  json.optString("delinquency_code", json.optString("delinquencyCode", ""));
 
         return new CRBDelinquencyReport(
                 json.optString("api_code", ""),
@@ -195,7 +195,7 @@ public class CRBDelinquencyService
                 "004".equals(delinquencyCode) || "005".equals(delinquencyCode) ? "listed" : "not listed",
                 json.has("trx_id") ? json.getString("trx_id") : "",
                 json.has("credit_score") ? json.getString("credit_score") : "",
-                json.has("is_gurantor") ? json.getString("vis_gurantor") : "",
+                json.has("is_gurantor") ? json.getString("is_gurantor") : "",
                 json.has("has_fraud") ? json.getString("has_fraud") : "",
                 "004".equals(delinquencyCode) || "005".equals(delinquencyCode)
 

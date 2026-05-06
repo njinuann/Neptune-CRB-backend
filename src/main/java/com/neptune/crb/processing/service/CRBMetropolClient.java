@@ -12,6 +12,8 @@ import javax.net.ssl.*;
 import java.security.cert.X509Certificate;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
@@ -87,13 +89,17 @@ public class CRBMetropolClient
 
         try
         {
-            String timestamp = getUTCTimestamp();
+            String timestamp = generateTimestamp();//getUTCTimestamp();
             String requestBody = buildRequestBody(identityNumber, loanAmount);
             String signature = generateSignature(requestBody, timestamp);
+
 
             logEvent("Timestamp ", timestamp);
             logEvent("requestBody ", requestBody);
             logEvent("signature ", signature);
+
+            logEvent("REQUEST BODY: [{}]", requestBody);
+            logEvent("REQUEST LENGTH: {}", requestBody.length());
 
             Request request = new Request.Builder()
                     .url(crbConfig.getUrl())
@@ -147,27 +153,65 @@ public class CRBMetropolClient
         }
     }
 
-    private String buildRequestBody(String identityNumber, int loanAmount)
-    {
-        JSONObject json = new JSONObject();
-        json.put("report_type", crbConfig.getReportType());
-        json.put("identity_number", identityNumber);
-        json.put("identity_type", crbConfig.getIdentityType());
-        json.put("loan_amount", loanAmount);
-        return json.toString();
-    }
+//    private String buildRequestBody(String identityNumber, int loanAmount)
+//    {
+////        JSONObject json = new JSONObject();
+////        json.put("report_type", crbConfig.getReportType());
+////        json.put("identity_number", identityNumber);
+////        json.put("identity_type", crbConfig.getIdentityType());
+////        json.put("loan_amount", loanAmount);
+////        return json.toString();
+//        Map<String, Object> map = new LinkedHashMap<>();
+//        map.put("report_type", crbConfig.getReportType());
+//        map.put("identity_number", identityNumber);
+//        map.put("identity_type", crbConfig.getIdentityType());
+//        map.put("loan_amount", loanAmount);
+//
+//        return new JSONObject(map).toString();
+//    }
 
-    private String generateSignature(String requestBody, String timestamp)
-    {
-        String hashInput = crbConfig.getPrivateKey() + requestBody + crbConfig.getPublicKey() + timestamp;
-        logEvent("Hash input length: {}", hashInput.length());
-      //  logEvent("secondHmak ",HashUtil.generateSignatureHmac(requestBody,timestamp,crbConfig.getPrivateKey()));
-        //return HashUtil.generateSHA256Hash(hashInput).toLowerCase();
-        return HashUtil.generateSignatureHmac(hashInput);
+private String buildRequestBody(String identityNumber, int loanAmount) {
+    //use this tp preserve the order and maintain the signature
+        return String.format(
+            "{\"report_type\":\"%d\",\"identity_number\":\"%s\",\"identity_type\":\"%s\",\"loan_amount\":%d}",
+            crbConfig.getReportType(),
+            identityNumber,
+            crbConfig.getIdentityType(),
+            loanAmount
+    );
+}
+
+    private String generateSignature(String requestBody, String timestamp) {
+
+        String hashInput =
+                crbConfig.getPrivateKey()
+                        + requestBody
+                        + crbConfig.getPublicKey()
+                        + timestamp;
+
+        logEvent("HASH INPUT: {}", hashInput);
+
+        String signature = HashUtil.generateSHA256Hash(hashInput).toLowerCase();
+
+        logEvent("SIGNATURE: {}", signature);
+
+        return signature;
     }
+//    private String generateSignature(String requestBody, String timestamp)
+//    {
+//        String hashInput = crbConfig.getPrivateKey() + requestBody + crbConfig.getPublicKey() + timestamp;
+//        logEvent("Hash input length: {}", hashInput.length());
+//        return HashUtil.generateSHA256Hash(hashInput);
+//    }
 
     private String getUTCTimestamp()
     {
         return dateFormat.format(new Date());
+    }
+
+    public static String generateTimestamp() {
+        return java.time.format.DateTimeFormatter
+                .ofPattern("yyyyMMddHHmmssSSSSSS")
+                .format(java.time.LocalDateTime.now(java.time.Clock.systemUTC()));
     }
 }

@@ -6,7 +6,8 @@ import jakarta.validation.constraints.Positive;
 import lombok.Data;
 
 
-public class CRBDelinquencyRequest {
+public class CRBDelinquencyRequest
+{
     @NotBlank(message = "Identity number is required")
     private String identityNumber;
 

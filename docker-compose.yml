@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  crb-processing:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: crb-processing-app
+    ports:
+      - "5900:5900"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod   # change to your profile
+    restart: unless-stopped
