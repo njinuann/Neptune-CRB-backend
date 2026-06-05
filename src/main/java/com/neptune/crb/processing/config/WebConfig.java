@@ -18,6 +18,7 @@ import static com.neptune.crb.processing.util.Logger.logEvent;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
+
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")

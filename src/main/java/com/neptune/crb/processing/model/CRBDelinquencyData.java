@@ -4,24 +4,31 @@ import java.util.List;
 
 
 public class CRBDelinquencyData {
- private List<CRBDelinquencyReport> delinquencyReport;
 
- public List<CRBDelinquencyReport> getDelinquencyReport()
- {
-  return delinquencyReport;
- }
+    private List<CRBDelinquencyReport> delinquencyReport;
+    private ReportData reportData;
 
- public void setDelinquencyReport(List<CRBDelinquencyReport> delinquencyReport)
- {
-  this.delinquencyReport = delinquencyReport;
- }
+    public CRBDelinquencyData() {}
 
- public CRBDelinquencyData(List<CRBDelinquencyReport> delinquencyReport)
- {
-  this.delinquencyReport = delinquencyReport;
- }
+    public CRBDelinquencyData(List<CRBDelinquencyReport> delinquencyReport,
+                              ReportData reportData) {
+        this.delinquencyReport = delinquencyReport;
+        this.reportData = reportData;
+    }
 
- public CRBDelinquencyData()
- {
- }
+    public List<CRBDelinquencyReport> getDelinquencyReport() {
+        return delinquencyReport;
+    }
+
+    public void setDelinquencyReport(List<CRBDelinquencyReport> delinquencyReport) {
+        this.delinquencyReport = delinquencyReport;
+    }
+
+    public ReportData getReportData() {
+        return reportData;
+    }
+
+    public void setReportData(ReportData reportData) {
+        this.reportData = reportData;
+    }
 }

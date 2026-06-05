@@ -1,47 +1,87 @@
-//package com.ryleq.crb.crb.processing.controller;
+//package com.neptune.crb.processing.controller;
 //
-//import model.com.neptune.crb.processing.ApiResponse;
-//import jakarta.servlet.http.HttpServletRequest;
-//import org.springframework.http.HttpStatus;
+//import com.neptune.crb.processing.model.ApiErrorResponse;
+//import jakarta.validation.ConstraintViolationException;
+//import lombok.extern.slf4j.Slf4j;
 //import org.springframework.http.ResponseEntity;
+//import org.springframework.validation.FieldError;
 //import org.springframework.web.bind.MethodArgumentNotValidException;
 //import org.springframework.web.bind.annotation.ExceptionHandler;
 //import org.springframework.web.bind.annotation.RestControllerAdvice;
-//import org.springframework.validation.FieldError;
 //
 //import java.util.stream.Collectors;
 //
-//import static util.com.neptune.crb.processing.Logger.logError;
-//
-//
+//@Slf4j
 //@RestControllerAdvice
 //public class GlobalExceptionHandler {
 //
-//    @ExceptionHandler(Exception.class)
-//    public ResponseEntity<ApiResponse<Object>> handleException(Exception e, HttpServletRequest request) {
-//        logError("Exception occurred at "+request.getRequestURI()  +": "+ e.getMessage(),  e); // Logs full stack trace
-//        ApiResponse<Object> response = new ApiResponse<>(
-//                "CRB_091",
-//                "FAILED",
-//                e.getMessage(),
-//                request.getRequestURI()
-//        );
-//        return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
-//    }
-//
 //    @ExceptionHandler(MethodArgumentNotValidException.class)
-//    public ResponseEntity<ApiResponse<Object>> handleValidationException(MethodArgumentNotValidException ex,HttpServletRequest request) {
-//        String errorMessage = ex.getBindingResult()
+//    public ResponseEntity<ApiErrorResponse> handleValidationException(
+//            MethodArgumentNotValidException ex) {
+//
+//        String errors = ex.getBindingResult()
 //                .getFieldErrors()
 //                .stream()
 //                .map(FieldError::getDefaultMessage)
 //                .collect(Collectors.joining(", "));
-//        ApiResponse<Object> response = new ApiResponse<>(
-//                "CRB_400",
-//                "VALIDATION_FAILED",
-//                errorMessage,
-//                request.getRequestURI()
-//        );
-//        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+//
+//        return ResponseEntity.badRequest()
+//                .body(new ApiErrorResponse(
+//                        "CRB_001",
+//                        errors,
+//                        null
+//                ));
+//    }
+//
+//    @ExceptionHandler(IllegalArgumentException.class)
+//    public ResponseEntity<ApiErrorResponse> handleIllegalArgument(
+//            IllegalArgumentException ex) {
+//
+//        return ResponseEntity.badRequest()
+//                .body(new ApiErrorResponse(
+//                        "CRB_002",
+//                        ex.getMessage(),
+//                        null
+//                ));
+//    }
+//
+//    @ExceptionHandler(ConstraintViolationException.class)
+//    public ResponseEntity<ApiErrorResponse> handleConstraintViolation(
+//            ConstraintViolationException ex) {
+//
+//        return ResponseEntity.badRequest()
+//                .body(new ApiErrorResponse(
+//                        "CRB_003",
+//                        ex.getMessage(),
+//                        null
+//                ));
+//    }
+//
+//    @ExceptionHandler(RuntimeException.class)
+//    public ResponseEntity<ApiErrorResponse> handleRuntimeException(
+//            RuntimeException ex) {
+//
+//        log.error("Runtime exception", ex);
+//
+//        return ResponseEntity.internalServerError()
+//                .body(new ApiErrorResponse(
+//                        "CRB_099",
+//                        ex.getMessage(),
+//                        null
+//                ));
+//    }
+//
+//    @ExceptionHandler(Exception.class)
+//    public ResponseEntity<ApiErrorResponse> handleGeneralException(
+//            Exception ex) {
+//
+//        log.error("Unhandled exception", ex);
+//
+//        return ResponseEntity.internalServerError()
+//                .body(new ApiErrorResponse(
+//                        "CRB_999",
+//                        "Unexpected system error",
+//                        null
+//                ));
 //    }
 //}

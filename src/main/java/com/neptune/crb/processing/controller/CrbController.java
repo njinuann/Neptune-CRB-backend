@@ -14,6 +14,8 @@ import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,8 +31,8 @@ import static com.neptune.crb.processing.util.Logger.logEvent;
 
 @RestController
 @RequestMapping("/api")
-public class CrbController
-{
+public class CrbController {
+    private static final Logger logger = LoggerFactory.getLogger(CrbController.class);
 
     private final ReportingService reportingService;
     private final UserService userService;
@@ -38,8 +40,7 @@ public class CrbController
     private final CRBDelinquencyService delinquencyService;
 
     @Autowired
-    public CrbController(ReportingService reportingService, UserService userService, CrbReportTypeRepository crbReportTypeRepository, CRBDelinquencyService delinquencyService)
-    {
+    public CrbController(ReportingService reportingService, UserService userService, CrbReportTypeRepository crbReportTypeRepository, CRBDelinquencyService delinquencyService) {
         this.reportingService = reportingService;
         this.userService = userService;
         this.crbReportTypeRepository = crbReportTypeRepository;
@@ -47,14 +48,12 @@ public class CrbController
     }
 
     @GetMapping("/echo")
-    public String getData(HttpServletRequest request)
-    {
+    public String getData(HttpServletRequest request) {
         Enumeration<String> headerNames = request.getHeaderNames();
         System.out.println("Headers:");
 
         logEvent("Headers:");
-        while (headerNames.hasMoreElements())
-        {
+        while (headerNames.hasMoreElements()) {
             String headerName = headerNames.nextElement();
             logEvent(headerName, request.getHeader(headerName));
         }
@@ -63,24 +62,20 @@ public class CrbController
     }
 
     @PostMapping("/crbResponse")
-    public String processCrbData(@RequestBody String jsonString)
-    {
-        try
-        {
+    public String processCrbData(@RequestBody String jsonString) {
+        try {
             logEvent("requestString", jsonString);
             ObjectMapper objectMapper = new ObjectMapper();
             ResponseWrapper requestWrapper = objectMapper.readValue(jsonString, ResponseWrapper.class);
 
             List<ResponseData> requestDataList = requestWrapper.getData();
-            for (ResponseData requestData : requestDataList)
-            {
+            for (ResponseData requestData : requestDataList) {
                 requestData.setRequestCode(requestWrapper.getRequestCode());
                 logEvent("requestData", requestData);
                 reportingService.saveCrbCallBackResponse(requestData);
             }
             return "Data processed successfully!";
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             e.printStackTrace();
             return "Error occurred: " + e.getMessage();
         }
@@ -88,35 +83,29 @@ public class CrbController
 
 
     @PostMapping("/auth/login")
-    public ResponseEntity<ApiResponse<?>> login(@RequestBody User user, HttpServletRequest request)
-    {
-        try
-        {
+    public ResponseEntity<ApiResponse<?>> login(@RequestBody User user, HttpServletRequest request) {
+        try {
             // Check for default user first
-            if (isDefaultUser(user))
-            {
+            if (isDefaultUser(user)) {
                 return createDefaultUserSuccessResponse(user, request);
             }
 
             // Existing regular user flow
-            if (!userService.existsByReference(user.getUserName()))
-            {
+            if (!userService.existsByReference(user.getUserName().toUpperCase())) {
                 logEvent("USER NOT ALLOWED ");
-                return createUserNotAllowedResponse(user.getUserName(), request);
+                return createUserNotAllowedResponse(user.getUserName().toUpperCase(), request);
             }
 
-            User authenticatedUser = userService.findUserByUserName(user.getUserName(), user.getPassword());
+            User authenticatedUser = userService.findUserByUserName(user.getUserName().toUpperCase(), user.getPassword());
             return createSuccessResponse(authenticatedUser, request);
 
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             logError("Error occurred: " + e.getMessage());
             return createErrorResponse("CRB_091", "Login Failed", e.getMessage(), request, HttpStatus.UNAUTHORIZED);
         }
     }
 
-    private ResponseEntity<ApiResponse<?>> createDefaultUserSuccessResponse(User user, HttpServletRequest request)
-    {
+    private ResponseEntity<ApiResponse<?>> createDefaultUserSuccessResponse(User user, HttpServletRequest request) {
         Map<String, Object> userData = Map.of(
                 "userName", "Neptune",
                 "names", "Neptune Consultant",
@@ -140,8 +129,7 @@ public class CrbController
         return ResponseEntity.ok(response);
     }
 
-    private ResponseEntity<ApiResponse<?>> createSuccessResponse(User authenticatedUser, HttpServletRequest request)
-    {
+    private ResponseEntity<ApiResponse<?>> createSuccessResponse(User authenticatedUser, HttpServletRequest request) {
         String token = generateToken(authenticatedUser);
         List<String> permissions = getUserPermissions(authenticatedUser.getRole());
 
@@ -168,16 +156,14 @@ public class CrbController
         return ResponseEntity.ok(response);
     }
 
-    private ResponseEntity<ApiResponse<?>> createUserNotAllowedResponse(String userName, HttpServletRequest request)
-    {
+    private ResponseEntity<ApiResponse<?>> createUserNotAllowedResponse(String userName, HttpServletRequest request) {
         Map<String, Object> responseData = Map.of("user", userName);
         return createErrorResponse("CRB_091", "User Not Allowed", responseData, request, HttpStatus.UNAUTHORIZED);
     }
 
     private ResponseEntity<ApiResponse<?>> createErrorResponse(String code, String message,
                                                                Object data, HttpServletRequest request,
-                                                               HttpStatus status)
-    {
+                                                               HttpStatus status) {
         ApiResponse<Object> errorResponse = new ApiResponse<>(
                 code,
                 message,
@@ -188,10 +174,8 @@ public class CrbController
     }
 
     @GetMapping("/data/users")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> fetchTheme(HttpServletRequest request)
-    {
-        try
-        {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> fetchTheme(HttpServletRequest request) {
+        try {
             Map<String, Object> usersData = userService.getAllUsers();
 
             ApiResponse<Map<String, Object>> response = new ApiResponse<>(
@@ -203,8 +187,7 @@ public class CrbController
 
             return ResponseEntity.ok(response);
 
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             ApiResponse<Map<String, Object>> response = new ApiResponse<>(
                     "99",
                     "Error fetching users: " + e.getMessage(),
@@ -217,13 +200,11 @@ public class CrbController
 
 
     @PostMapping("/data/adduser")
-    public ResponseEntity<ApiResponse<?>> addUser(@RequestBody CrbUser user, HttpServletRequest request)
-    {
+    public ResponseEntity<ApiResponse<?>> addUser(@RequestBody CrbUser user, HttpServletRequest request) {
         System.out.println("=================/data/adduser ==============");
         System.out.println(user.toString());
 
-        try
-        {
+        try {
             long startTime = System.currentTimeMillis();
 
             user.setCreatedDate(LocalDateTime.now());
@@ -231,8 +212,7 @@ public class CrbController
 
             int rowsAffected = userService.addUser(user);
 
-            if (rowsAffected > 0)
-            {  // FIXED: Check for positive number of rows affected
+            if (rowsAffected > 0) {  // FIXED: Check for positive number of rows affected
                 Map<String, Object> usersData = userService.getUserById(user.getLoginId());
 
                 ApiResponse<?> response = new ApiResponse<>(
@@ -250,9 +230,7 @@ public class CrbController
                 System.out.println("Time taken: " + timeTakenMs + " ms (" + timeTakenSec + " seconds)");
 
                 return new ResponseEntity<>(response, HttpStatus.OK);
-            }
-            else
-            {
+            } else {
                 // User not created - return proper error response
                 ApiResponse<?> errorResponse = new ApiResponse<>(
                         "CRB_081",
@@ -263,8 +241,66 @@ public class CrbController
                 return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
             }
 
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
+            ApiResponse<Object> errorResponse = new ApiResponse<>(
+                    "CRB_080",
+                    "FAILED",
+                    e.getMessage(),
+                    request.getRequestURI()
+            );
+            return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @PutMapping("/data/users/{loginId}")
+    public ResponseEntity<ApiResponse<?>> amendUser(@PathVariable String loginId, @RequestBody UserDto userDto, HttpServletRequest request) {
+        CrbUser user = new CrbUser();
+        user.setLoginId(userDto.getLoginId());
+        user.setRole(userDto.getRole());
+        user.setUserName(userDto.getNames());
+        user.setStatus("A");
+
+        System.out.println("=================/data/adduser ==============");
+        System.out.println(user.toString());
+
+        try {
+            long startTime = System.currentTimeMillis();
+
+            user.setCreatedDate(LocalDateTime.now());
+            user.setLastModifiedDate(LocalDateTime.now());
+
+            int rowsAffected = userService.addUser(user);
+
+            if (rowsAffected > 0) {  // FIXED: Check for positive number of rows affected
+                Map<String, Object> usersData = userService.getUserById(user.getLoginId());
+
+                ApiResponse<?> response = new ApiResponse<>(
+                        "00",
+                        "Successful",
+                        usersData,
+                        request.getRequestURI()
+                );
+
+                long endTime = System.currentTimeMillis();
+                long timeTakenMs = endTime - startTime;
+                double timeTakenSec = timeTakenMs / 1000.0;
+
+                System.out.println("Response sent.");
+                System.out.println("Time taken: " + timeTakenMs + " ms (" + timeTakenSec + " seconds)");
+
+                return new ResponseEntity<>(response, HttpStatus.OK);
+            } else {
+                // User not created - return proper error response
+                ApiResponse<?> errorResponse = new ApiResponse<>(
+                        "CRB_081",
+                        "User creation failed",
+                        "No rows affected during user creation",
+                        request.getRequestURI()
+                );
+                return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+            }
+
+        } catch (Exception e) {
             ApiResponse<Object> errorResponse = new ApiResponse<>(
                     "CRB_080",
                     "FAILED",
@@ -276,23 +312,18 @@ public class CrbController
     }
 
     @DeleteMapping("/data/user/{loginId}")
-    public ResponseEntity<ApiResponse<?>> deleteUser(@PathVariable String loginId, HttpServletRequest request)
-    {
-        try
-        {
+    public ResponseEntity<ApiResponse<?>> deleteUser(@PathVariable String loginId, HttpServletRequest request) {
+        try {
             int rowsAffected = userService.deleteUser(loginId);
 
-            if (rowsAffected > 0)
-            {
+            if (rowsAffected > 0) {
                 return ResponseEntity.ok(new ApiResponse<>(
                         "00",
                         "User deleted successfully",
                         null,
                         request.getRequestURI()
                 ));
-            }
-            else
-            {
+            } else {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(
                         "CRB_081",
                         "User not found",
@@ -300,8 +331,7 @@ public class CrbController
                         request.getRequestURI()
                 ));
             }
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(
                     "CRB_080",
                     "Deletion failed",
@@ -312,8 +342,7 @@ public class CrbController
     }
 
     @GetMapping("/data/permissions")
-    public ResponseEntity<ApiResponse<Map<String, List<Map<String, Object>>>>> fetchPermissions(HttpServletRequest request)
-    {
+    public ResponseEntity<ApiResponse<Map<String, List<Map<String, Object>>>>> fetchPermissions(HttpServletRequest request) {
 
         List<Map<String, Object>> rolePermissions = new ArrayList<>();
 
@@ -362,8 +391,7 @@ public class CrbController
     }
 
     @GetMapping("/views")
-    public ResponseEntity<ApiResponse<Map<String, List<Map<String, String>>>>> getViewItems(HttpServletRequest request)
-    {
+    public ResponseEntity<ApiResponse<Map<String, List<Map<String, String>>>>> getViewItems(HttpServletRequest request) {
         List<Map<String, String>> views = new ArrayList<>();
         System.out.println("here for views");
         // Add your view items
@@ -471,14 +499,11 @@ public class CrbController
         return ResponseEntity.ok(response);
     }
 
-    private String resolveViewById(String viewId)
-    {
-        if (viewId == null)
-        {
+    private String resolveViewById(String viewId) {
+        if (viewId == null) {
             return "";
         }
-        return switch (viewId.trim())
-        {
+        return switch (viewId.trim()) {
             case "individual-consumer" -> "CE";
             case "non-individual-consumer" -> "CI";
             case "credit-app-info" -> "CA";
@@ -497,15 +522,16 @@ public class CrbController
     }
 
     @GetMapping("/views/{id}/data")
-    public ResponseEntity<ApiResponse<?>> getViewData(@PathVariable String id, HttpServletRequest request)
-    {
+    public ResponseEntity<ApiResponse<?>> getViewData( @PathVariable String id,
+                                                       @RequestParam(defaultValue = "1") int page,
+                                                       @RequestParam(defaultValue = "100") int pageSize,
+                                                       HttpServletRequest request) {
         System.out.println("=================/views/{id}/data ============== " + id);
         System.out.println(id);
-        try
-        {
+        try {
             String reportType = resolveViewById(id);
             System.out.println("=================reportType ============== " + reportType);
-            List<Map<String, Object>> report = reportingService.getReportViewData(reportType);
+            List<Map<String, Object>> report = reportingService.getReportViewData(reportType, page, pageSize);
             ApiResponse<?> response = new ApiResponse<>(
                     "00",
                     "Successful",
@@ -514,8 +540,7 @@ public class CrbController
             );
 
             return new ResponseEntity<>(response, HttpStatus.OK);
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             ApiResponse<Object> errorResponse = new ApiResponse<>(
                     "CRB_080",
                     "FAILED",
@@ -527,15 +552,16 @@ public class CrbController
     }
 
     @GetMapping("/{viewId}/check-errors")
-    public ResponseEntity<?> checkErrors(@PathVariable String viewId, @RequestParam String reportCode, HttpServletRequest request)
-    {
+    public ResponseEntity<?> checkErrors(@PathVariable String viewId, @RequestParam String reportCode,
+                                         @RequestParam(defaultValue = "1") int page,
+                                         @RequestParam(defaultValue = "100") int pageSize,
+                                         HttpServletRequest request  ) {
         System.out.println("=================/views/{id}/data ============== " + viewId);
         System.out.println(viewId);
-        try
-        {
+        try {
             String reportType = resolveViewById(viewId);
             System.out.println("=================reportType ============== " + reportType);
-            List<Map<String, Object>> report = reportingService.getReportViewData(reportType);
+            List<Map<String, Object>> report = reportingService.getReportViewData(reportType,page, pageSize);
             ApiResponse<?> response = new ApiResponse<>(
                     "00",
                     "Successful",
@@ -544,8 +570,7 @@ public class CrbController
             );
 
             return new ResponseEntity<>(response, HttpStatus.OK);
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             ApiResponse<Object> errorResponse = new ApiResponse<>(
                     "CRB_080",
                     "FAILED",
@@ -557,62 +582,113 @@ public class CrbController
     }
 
 
-    @PostMapping("/views/{id}/submit")
-    public ResponseEntity<ApiResponse<?>> submitViewData(@PathVariable String id, HttpServletRequest request)
-    {
-        System.out.println("=================/views/{id}/data ==============");
-        System.out.println(id);
-        List<Map<String, String>> views = new ArrayList<>();
-        try
-        {
-            String reportType = resolveViewById(id);
-            if (!reportingService.reportEnabled(reportType))
-            {
-                ApiResponse<Object> errorResponse = new ApiResponse<>(
-                        "CRB_099",
-                        "DISABLED",
-                        "This report is not enabled for submission. Please contact System Admin!",
-                        request.getRequestURI()
-                );
-                return new ResponseEntity<>(errorResponse, HttpStatus.PRECONDITION_FAILED);
-            }
+//    @PostMapping("/views/{id}/submit")
+//    public ResponseEntity<ApiResponse<?>> submitViewData(@PathVariable String id, HttpServletRequest request) {
+//        System.out.println("=================/views/{id}/data ==============");
+//        System.out.println(id);
+//        List<Map<String, String>> views = new ArrayList<>();
+//        try {
+//            String reportType = resolveViewById(id);
+//            if (!reportingService.reportEnabled(reportType)) {
+//                ApiResponse<Object> errorResponse = new ApiResponse<>(
+//                        "CRB_099",
+//                        "DISABLED",
+//                        "This report is not enabled for submission. Please contact System Admin!",
+//                        request.getRequestURI()
+//                );
+//                return new ResponseEntity<>(errorResponse, HttpStatus.PRECONDITION_FAILED);
+//            }
+//
+//            boolean submitted = reportingService.processReportAPIData(reportType, true);
+//            if (submitted) {
+//                ApiResponse<?> response = new ApiResponse<>(
+//                        "00",
+//                        "Successful",
+//                        views,
+//                        request.getRequestURI()
+//                );
+//                return new ResponseEntity<>(response, HttpStatus.OK);
+//            } else {
+//                return new ResponseEntity<>(null, HttpStatus.PROCESSING);
+//            }
+//
+//        } catch (Exception e) {
+//            ApiResponse<Object> errorResponse = new ApiResponse<>(
+//                    "CRB_080",
+//                    "FAILED",
+//                    e.getMessage(),
+//                    request.getRequestURI()
+//            );
+//            return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
+//        }
+//    }
+@PostMapping("/views/{id}/submit")
+public ResponseEntity<ApiResponse<?>> submitViewData( @PathVariable String id,
+                                                      @RequestBody SubmitViewRequest request,   // ← replaces HttpServletRequest
+                                                      HttpServletRequest httpRequest ) {
+    System.out.println("=================/views/{id}/data ==============");
+    System.out.println(id);
+    List<Map<String, String>> views = new ArrayList<>();
+    try {
+        // Access the submitted records
+        List<Map<String, Object>> records = request.getViewData();
 
-            boolean submitted = reportingService.processReportAPIData(reportType, true);
-            if (submitted)
-            {
-                ApiResponse<?> response = new ApiResponse<>(
-                        "00",
-                        "Successful",
-                        views,
-                        request.getRequestURI()
-                );
-                return new ResponseEntity<>(response, HttpStatus.OK);
-            }
-            else
-            {
-                return new ResponseEntity<>(null, HttpStatus.PROCESSING);
-            }
+        // Know if this was a filtered submission
+        boolean wasFiltered = request.getFilterContext() != null
+                && request.getFilterContext().isFilterApplied();
 
-        } catch (Exception e)
-        {
+        // How many records total vs filtered
+        long total     = request.getFilterContext().getTotalRecords();
+        long submittedValue = request.getFilterContext().getFilteredRecords();
+
+        // The search filter that was applied (null if none)
+        SearchFilter searchFilter = request.getFilterContext().getSearchFilter();
+        // e.g. field = "account_number", value = "KCB"
+
+        // The rule filters that were matched
+        List<FilterRule> appliedRules = request.getFilterContext().getRuleFilter();
+
+        String reportType = resolveViewById(id);
+        if (!reportingService.reportEnabled(reportType)) {
             ApiResponse<Object> errorResponse = new ApiResponse<>(
-                    "CRB_080",
-                    "FAILED",
-                    e.getMessage(),
-                    request.getRequestURI()
+                    "CRB_099",
+                    "DISABLED",
+                    "This report is not enabled for submission. Please contact System Admin!",
+                    httpRequest.getRequestURI()
             );
-            return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
+            return new ResponseEntity<>(errorResponse, HttpStatus.PRECONDITION_FAILED);
         }
+
+        boolean submitted = reportingService.processReportAPIData(reportType, true);
+        if (submitted) {
+            ApiResponse<?> response = new ApiResponse<>(
+                    "00",
+                    "Successful",
+                    views,
+                    httpRequest.getRequestURI()
+            );
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } else {
+            return new ResponseEntity<>(null, HttpStatus.PROCESSING);
+        }
+
+    } catch (Exception e) {
+        ApiResponse<Object> errorResponse = new ApiResponse<>(
+                "CRB_080",
+                "FAILED",
+                e.getMessage(),
+                httpRequest.getRequestURI()
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
+}
 
 
     @GetMapping("/views/{id}/summary")
-    public ResponseEntity<ApiResponse<?>> getReportMetrics(@PathVariable String id, HttpServletRequest request)
-    {
+    public ResponseEntity<ApiResponse<?>> getReportMetrics(@PathVariable String id, HttpServletRequest request) {
         System.out.println("=================/views/{id}/data ==============");
         System.out.println(id);
-        try
-        {
+        try {
             String reportType = resolveViewById(id);
             List<Map<String, Object>> report = reportingService.getDataMetrics();
             ApiResponse<?> response = new ApiResponse<>(
@@ -623,8 +699,7 @@ public class CrbController
             );
 
             return new ResponseEntity<>(response, HttpStatus.OK);
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             ApiResponse<Object> errorResponse = new ApiResponse<>(
                     "CRB_080",
                     "FAILED",
@@ -635,16 +710,15 @@ public class CrbController
         }
     }
 
-    @GetMapping("/views/{id}/submissions")
-    public ResponseEntity<ApiResponse<?>> getSubmissionSummary(@PathVariable String reportType, HttpServletRequest request)
-    {
+    @GetMapping("/views/{reportType}/submissions")
+    public ResponseEntity<ApiResponse<?>> getSubmissionSummary(@PathVariable String reportType, @RequestParam(defaultValue = "1") int page,
+                                                               @RequestParam(defaultValue = "100") int pageSize, HttpServletRequest request) {
         System.out.println("=================/views/{id}/submissions ============== " + reportType);
         System.out.println(reportType);
-        try
-        {
+        try {
             //   String reportType = id; //resolveViewById(id);
             System.out.println("=================reportType ============== " + reportType);
-            List<Map<String, Object>> report = reportingService.getReportViewData(reportType);
+            List<Map<String, Object>> report = reportingService.getReportViewData(reportType,page, pageSize);
             ApiResponse<?> response = new ApiResponse<>(
                     "00",
                     "Successful",
@@ -653,8 +727,7 @@ public class CrbController
             );
 
             return new ResponseEntity<>(response, HttpStatus.OK);
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             ApiResponse<Object> errorResponse = new ApiResponse<>(
                     "CRB_080",
                     "FAILED",
@@ -666,10 +739,8 @@ public class CrbController
     }
 
     @GetMapping("/report-types")
-    public ApiResponse<Map<String, List<Map<String, String>>>> getReportTypes(HttpServletRequest request)
-    {
-        try
-        {
+    public ApiResponse<Map<String, List<Map<String, String>>>> getReportTypes(HttpServletRequest request) {
+        try {
             List<Map<String, String>> reportTypes = crbReportTypeRepository.getActiveReportTypesAsMap();
 
             Map<String, List<Map<String, String>>> data = new HashMap<>();
@@ -681,8 +752,7 @@ public class CrbController
                     data,
                     request.getRequestURI()
             );
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             Map<String, List<Map<String, String>>> emptyData = new HashMap<>();
             emptyData.put("reportTypes", new ArrayList<>());
 
@@ -696,10 +766,8 @@ public class CrbController
     }
 
     @GetMapping("/report-types/all")
-    public ApiResponse<Map<String, List<CrbReportType>>> getAllReportTypes(HttpServletRequest request)
-    {
-        try
-        {
+    public ApiResponse<Map<String, List<CrbReportType>>> getAllReportTypes(HttpServletRequest request) {
+        try {
             List<CrbReportType> reportTypes = crbReportTypeRepository.getAllReportTypes();
 
             Map<String, List<CrbReportType>> data = new HashMap<>();
@@ -711,8 +779,7 @@ public class CrbController
                     data,
                     request.getRequestURI()
             );
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             Map<String, List<CrbReportType>> emptyData = new HashMap<>();
             emptyData.put("reportTypes", new ArrayList<>());
 
@@ -726,25 +793,21 @@ public class CrbController
     }
 
 
-    private Map<String, String> createItem(String id, String name)
-    {
+    private Map<String, String> createItem(String id, String name) {
         Map<String, String> item = new HashMap<>();
         item.put("id", id);
         item.put("name", name);
         return item;
     }
 
-    private List<String> getUserPermissions(String role)
-    {
-        if (role == null)
-        {
+    private List<String> getUserPermissions(String role) {
+        if (role == null) {
             return List.of();
         }
 
         String normalizedRole = role.toLowerCase();
 
-        return switch (normalizedRole)
-        {
+        return switch (normalizedRole) {
             case "system administrator", "admin" -> List.of(
                     "view_guarantor_info", "view_stakeholders", "view_collateral_info",
                     "view_credit_app", "view_non_individual_customers", "view_individual_customers",
@@ -764,8 +827,7 @@ public class CrbController
 
     private static final Key SECRET_KEY = Keys.secretKeyFor(SignatureAlgorithm.HS512); // Securely generated key
 
-    private String generateToken(User user)
-    {
+    private String generateToken(User user) {
         return Jwts.builder()
                 .setSubject(user.getUserName())
                 .claim("role", user.getRole())
@@ -776,8 +838,7 @@ public class CrbController
                 .compact();
     }
 
-    private boolean isDefaultUser(User user)
-    {
+    private boolean isDefaultUser(User user) {
         return user.getUserName().equalsIgnoreCase("neptune") && user.getPassword().equalsIgnoreCase("password1");
 
     }
@@ -785,11 +846,9 @@ public class CrbController
     @PostMapping("/report-types")
     public ApiResponse<Map<String, Object>> upsertReportType(
             @RequestBody CrbReportType request,
-            HttpServletRequest httpRequest)
-    {
+            HttpServletRequest httpRequest) {
 
-        try
-        {
+        try {
             int affectedRows = crbReportTypeRepository.upsertReportType(
                     request.getReportType(),
                     request.getReportNm(),
@@ -811,8 +870,7 @@ public class CrbController
                     httpRequest.getRequestURI()
             );
 
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             Map<String, Object> errorData = new HashMap<>();
             errorData.put("affectedRows", 0);
 
@@ -829,11 +887,9 @@ public class CrbController
     @PostMapping("/report-types/batch")
     public ApiResponse<Map<String, Object>> batchUpsertReportTypes(
             @RequestBody List<CrbReportType> requests,
-            HttpServletRequest httpRequest)
-    {
+            HttpServletRequest httpRequest) {
 
-        try
-        {
+        try {
             // Convert requests to entities
             List<CrbReportType> reportTypes = requests.stream()
                     .map(req -> new CrbReportType(req.getReportType(), req.getReportNm(), req.getEnabled(), req.getPriority(), req.getScheduleType()))
@@ -854,8 +910,7 @@ public class CrbController
                     httpRequest.getRequestURI()
             );
 
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             Map<String, Object> errorData = new HashMap<>();
             errorData.put("totalAffectedRows", 0);
 
@@ -872,11 +927,9 @@ public class CrbController
     @DeleteMapping("/report-types/{reportType}")
     public ApiResponse<Map<String, Object>> deleteReportType(
             @PathVariable String reportType,
-            HttpServletRequest httpRequest)
-    {
+            HttpServletRequest httpRequest) {
 
-        try
-        {
+        try {
             int affectedRows = crbReportTypeRepository.deleteReportType(reportType);
 
             Map<String, Object> data = new HashMap<>();
@@ -890,8 +943,7 @@ public class CrbController
                     httpRequest.getRequestURI()
             );
 
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             Map<String, Object> errorData = new HashMap<>();
             errorData.put("affectedRows", 0);
 
@@ -907,13 +959,11 @@ public class CrbController
     @GetMapping("/views/view-error-query/check-errors")
     public ResponseEntity<ApiResponse<?>> checkViewErrors(
             @RequestParam String reportCode,
-            HttpServletRequest request)
-    {
+            HttpServletRequest request) {
         System.out.println("=================/views/view-error-query/check-errors ==============");
         System.out.println("Report Code: " + reportCode);
 
-        try
-        {
+        try {
             // Get the error data from the external API
             List<Map<String, Object>> errorData = reportingService.getErrorResponse(reportCode);
 
@@ -925,8 +975,7 @@ public class CrbController
             );
 
             return new ResponseEntity<>(response, HttpStatus.OK);
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             ApiResponse<Object> errorResponse = new ApiResponse<>(
                     "CRB_080",
                     "FAILED",
@@ -941,33 +990,36 @@ public class CrbController
     public ResponseEntity<CRBApiResponse> enquireDelinquency(
             @Valid @RequestBody DelinquentCheckRequest request,
             @RequestHeader(value = "X-User-Id", required = false, defaultValue = "SYSTEM")
-            String userId, HttpServletRequest httpServletRequest)
-    {
+            String userId, HttpServletRequest httpServletRequest) {
 
+        logger.info("vendor type: {}, creditApplId: {}", request.getCrbVendorType(), request.getCreditApplicationId());
+        logger.info("remoteUser: {}, remoteAddress: {}, remoteHost: {}, remotePort: {}", httpServletRequest.getRemoteUser(), httpServletRequest.getRemoteAddr(), httpServletRequest.getRemoteHost(), httpServletRequest.getRemotePort());
 
-        try
-        {
-            CRBDelinquencyReport report = delinquencyService.checkDelinquency(request, userId);
-
-            if (report == null)
-            {
+        try {
+             CRBDelinquencyResponseWrapper wrapper =
+                    delinquencyService.checkDelinquency(request, userId);
+            if (wrapper == null) {
                 return ResponseEntity.ok(new CRBApiResponse(
                         "CRB_099",
                         "Failed to process request: ",
                         new CRBDelinquencyData()));
 
             }
-
+            logger.info("Wrapped  response {}",wrapper.getReport());
+            logger.info("Wrapped  response Data {}",wrapper.getReportData());
             CRBApiResponse response = new CRBApiResponse(
                     "00",
                     "Success",
-                    new CRBDelinquencyData(Collections.singletonList(report)));
+                    new CRBDelinquencyData(
+                            Collections.singletonList(wrapper.getReport()),
+                            wrapper.getReportData()
+                    )
+            );
             return ResponseEntity.ok(response);
 
 
-        } catch (Exception e)
-        {
-            logError("Error processing delinquency check", e);
+        } catch (Exception e) {
+            logger.error("Error processing delinquency check", e);
             return ResponseEntity.ok(new CRBApiResponse(
                     "CRB_099",
                     "System error: " + e.getMessage(),
@@ -979,30 +1031,29 @@ public class CrbController
     public ResponseEntity<CRBApiResponse> checkDelinquency(
             @Valid @RequestBody CRBDelinquencyRequest crbDelinquencyRequest,
             @RequestHeader(value = "X-User-Id", required = false, defaultValue = "SYSTEM")
-            String userId, HttpServletRequest httpServletRequest)
-    {
-        try
-        {
-            CRBDelinquencyReport report = delinquencyService.checkDelinquencyById(crbDelinquencyRequest, userId);
+            String userId, HttpServletRequest httpServletRequest) {
+        try {
 
-            if (report == null)
-            {
+            CRBDelinquencyResponseWrapper report = delinquencyService.checkDelinquencyById(crbDelinquencyRequest, userId);
+
+            if (report == null) {
                 return ResponseEntity.ok(new CRBApiResponse(
                         "CRB_099",
                         "Failed to process request: ",
                         new CRBDelinquencyData()));
 
             }
-
             CRBApiResponse response = new CRBApiResponse(
                     "00",
                     "Success",
-                    new CRBDelinquencyData(Collections.singletonList(report)));
+                    new CRBDelinquencyData(
+                            Collections.singletonList(report.getReport()),
+                            report.getReportData()
+                    )
+            );
             return ResponseEntity.ok(response);
 
-
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             logError("Error processing delinquency check", e);
             return ResponseEntity.ok(new CRBApiResponse(
                     "CRB_099",
@@ -1010,21 +1061,19 @@ public class CrbController
                     new CRBDelinquencyData()));
         }
     }
+
     @PostMapping("/settings/theme")
-    public ResponseEntity<ApiResponse<?>> saveTheme(@RequestBody String theme, HttpServletRequest request)
-    {
+    public ResponseEntity<ApiResponse<?>> saveTheme(@RequestBody String theme, HttpServletRequest request) {
         JSONObject themeJson = new JSONObject(theme);
         System.out.println("=================/settings/theme ==============");
         System.out.println(themeJson.toString());
 
-        try
-        {
+        try {
             long startTime = System.currentTimeMillis();
 
             int rowsAffected = userService.saveTheme(themeJson.optString("theme"));
 
-            if (rowsAffected > 0)
-            {
+            if (rowsAffected > 0) {
                 ApiResponse<?> response = new ApiResponse<>(
                         "00",
                         "Theme saved successfully",
@@ -1040,9 +1089,7 @@ public class CrbController
                 System.out.println("Time taken: " + timeTakenMs + " ms (" + timeTakenSec + " seconds)");
 
                 return new ResponseEntity<>(response, HttpStatus.OK);
-            }
-            else
-            {
+            } else {
                 // User not created - return proper error response
                 ApiResponse<?> errorResponse = new ApiResponse<>(
                         "CRB_081",
@@ -1053,8 +1100,7 @@ public class CrbController
                 return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
             }
 
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             ApiResponse<Object> errorResponse = new ApiResponse<>(
                     "CRB_080",
                     "FAILED",
@@ -1067,10 +1113,8 @@ public class CrbController
     }
 
     @GetMapping("/settings/theme")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> fetchUsers(HttpServletRequest request)
-    {
-        try
-        {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> fetchUsers(HttpServletRequest request) {
+        try {
             Map<String, Object> usersData = userService.getTheme();
 
             ApiResponse<Map<String, Object>> response = new ApiResponse<>(
@@ -1082,8 +1126,7 @@ public class CrbController
 
             return ResponseEntity.ok(response);
 
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             ApiResponse<Map<String, Object>> response = new ApiResponse<>(
                     "99",
                     "Error fetching Theme: " + e.getMessage(),

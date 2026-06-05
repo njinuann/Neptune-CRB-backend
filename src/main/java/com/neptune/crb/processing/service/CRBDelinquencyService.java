@@ -6,40 +6,56 @@ package com.neptune.crb.processing.service;
  * @since 23-Mar-26
  */
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.neptune.crb.processing.config.CRBConfig;
 import com.neptune.crb.processing.model.*;
 import com.neptune.crb.processing.repository.CRBDelinquencyRepository;
+import com.neptune.crb.processing.util.AXWorker;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
+import org.slf4j.MDC;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.neptune.crb.processing.util.Logger.logEvent;
 
 @Slf4j
 @Service
-public class CRBDelinquencyService
-{
+public class CRBDelinquencyService {
 
-    private final CRBMetropolClient metropolClient;
     private final CRBDelinquencyRepository repository;
+    private final MetropolService metropolClient;
+    private final AXWorker axWorker;
 
-    public CRBDelinquencyService(CRBMetropolClient metropolClient, CRBDelinquencyRepository repository)
-    {
+    private final CRBConfig crbConfig;
+    private final PdfExtractionService pdfExtractionService;
+
+    private final ObjectMapper mapper = new ObjectMapper();
+    private final Set<String> inFlightRequests = ConcurrentHashMap.newKeySet();
+
+    private String fingerprint(String id, int amount) {
+        return id + "-" + amount;
+    }
+
+    public CRBDelinquencyService(MetropolService metropolClient, CRBDelinquencyRepository repository, AXWorker axWorker, CRBConfig crbConfig, PdfExtractionService pdfExtractionService) {
         this.metropolClient = metropolClient;
         this.repository = repository;
+        this.axWorker = axWorker;
+        this.crbConfig = crbConfig;
+        this.pdfExtractionService = pdfExtractionService;
     }
 
     @Transactional
-    public CRBDelinquencyReport checkDelinquencyById(CRBDelinquencyRequest request, String userId)
-    {
+    public CRBDelinquencyResponseWrapper checkDelinquencyById(CRBDelinquencyRequest request, String userId) {
         logEvent("delinquency-check ", "Delinquency check request - Identity: " +
                 request.getIdentityNumber(), request.getLoanAmount());
         logEvent("delinquency-check ", "Delinquency check request -   Amount: %s" +
@@ -50,162 +66,283 @@ public class CRBDelinquencyService
         delinquentCheckRequest.setLoanAmount(new BigDecimal(request.getLoanAmount()));
         delinquentCheckRequest.setIdentityType(request.getIdentityType());
 
-        CRBDelinquencyReport report = processCRB(delinquentCheckRequest, userId);
-        /* Mock response Data */
-        if (report.getHasError())
-        {
-            return mockedData(delinquentCheckRequest);
-        }
-        /* end of sMock response Data */
-        return report;
+        CRBDelinquencyReport report = processAndHandleFallback(delinquentCheckRequest, userId);
+
+        return new CRBDelinquencyResponseWrapper(report, null);
     }
 
-    @Transactional
-    public CRBDelinquencyReport checkDelinquency(DelinquentCheckRequest delinquentCheckRequest, String userId)
-    {
-        //fetch id and amount from credit app
-        CRBDelinquencySearch request = new CRBDelinquencySearch();
-
-        /* Mock response Data */
-        request.setIdentityNumber("550000055");
-        request.setLoanAmount(new BigDecimal(50000));
-        /* Mock response Data */
-
-        logEvent("delinquency-check ", "Delinquency check request - Identity: " +
-                request.getIdentityNumber(), request.getLoanAmount());
-        logEvent("delinquency-check ", "Delinquency check request -   Amount: %s" +
-                request.getLoanAmount());
-
-        CRBDelinquencyReport report = processCRB(request, userId);
-        /* Mock response Data */
-        if (report.getHasError())
-        {
-            return mockedData(request);
-        }
-        /* end of sMock response Data */
+    public CRBDelinquencyResponseWrapper checkDelinquency(DelinquentCheckRequest request, String userId) {
 
 
-        return report;
+        CreditApplicationData creditApplicationData = repository.fetchLoanDataByCreditAppID(request.getCreditApplicationId());
+        return executeWithMDC(() -> {
+
+            CRBDelinquencySearch search = buildSearch(
+                    creditApplicationData.getIdNumber(),
+                    creditApplicationData.getLoanAmount(),
+                    "001"
+            );
+
+            CRBDelinquencyReport report = processAndHandleFallback(search, userId);
+
+            // 🔥 READ PDF HERE
+            ReportData reportData = new ReportData();
+            String base64 = report.getPdfReport();
+            if (!axWorker.isBlank(base64)) {
+                // String base64 = encodePdfFromResources("crbreport.pdf");
+                reportData.setReferenceNumber(generateTransactionId());
+                reportData.setCrbReport(base64);
+                reportData.setDocumentName(generateTransactionId() + "-" + request.getCreditApplicationId() + ".pdf");
+                reportData.setDocumentType(63L);
+                System.out.println("PDF Read ====> " + reportData.toString());
+            }
+//            else{
+//                // TODO : Remove this bit to have once live
+//                base64 = encodePdfFromResources("crbreport.pdf");
+//                reportData.setReferenceNumber(generateTransactionId());
+//                reportData.setCrbReport(base64);
+//                reportData.setDocumentName(generateTransactionId() + "-" + request.getCreditApplicationId() + ".pdf");
+//                reportData.setDocumentType(63L);
+//               // report.setPdfReport(base64);
+//            }
+            return new CRBDelinquencyResponseWrapper(report, reportData);
+
+        }, creditApplicationData.getIdNumber(), request.getCrbVendorType(), request.getCreditApplicationId());
     }
 
-    private CRBDelinquencyReport mockedData(CRBDelinquencySearch request)
-    {
-        CRBDelinquencyReport crbDelinquencyReport = new CRBDelinquencyReport();
-        crbDelinquencyReport.setCreditScore("303");
-        crbDelinquencyReport.setDelinquencyCode("005");
-        crbDelinquencyReport.setDelinquencySummary("Historical delinquency True ~ " + getScoreDescription(303));
-        crbDelinquencyReport.setDelinquencyDescription(getDelinquencyCode("005"));
-        crbDelinquencyReport.setHasError(false);
-        crbDelinquencyReport.setIdentityType("National Id");
-        crbDelinquencyReport.setIdentityTypeDescription("National Id");
-        crbDelinquencyReport.setIdentityNumber(request.getIdentityNumber());
-        crbDelinquencyReport.setTransactionId("e9e0991e-d35c-4884-a793-dadf2a52cf41");
+    private CRBDelinquencyReport processAndHandleFallback(CRBDelinquencySearch request, String userId) {
+        try {
+            CRBDelinquencyReport report = processCRB(request, userId);
 
-        crbDelinquencyReport.setIsGuarantor("false");
-        crbDelinquencyReport.setHasFraud("false");
-        crbDelinquencyReport.setIsListed(crbDelinquencyReport.getDelinquencyCode().contains("005") || crbDelinquencyReport.getDelinquencyCode().contains("004"));
-        crbDelinquencyReport.setListingStatus(crbDelinquencyReport.getIsListed() ? "listed" : "not listed");
-        // delinquencyReport.add(crbDelinquencyReport);
+            // TODO: Remove mocked data on production
+            return report;
+//            return report.getHasError()
+//                    ? mockedData(request)
+//                    : report;
 
-
-        return crbDelinquencyReport;
-    }
-
-    public String getScoreDescription(int score)
-    {
-
-        if (score >= 725)
-        {
-            return "Very Good (Low risk, high chance of loan approval)";
-        }
-        else if (score >= 660)
-        {
-            return "Good (Most common)";
-        }
-        else if (score >= 560)
-        {
-            return "Fair/Moderate Risk (High debt, late payments)";
-        }
-        else if (score >= 400)
-        {
-            return "Very Poor (Missed payments, defaults)";
-        }
-        else
-        {
-            return "High default risk/Defaulter";
+        } catch (Exception e) {
+            log.error("CRB processing failed", e);
+            //return mockedData(request);
+            return new CRBDelinquencyReport();
         }
     }
 
-    private CRBDelinquencyReport processCRB(CRBDelinquencySearch request, String userId)
-    {
-        /* start process heere here */
+    private CRBDelinquencyReport processCRB(CRBDelinquencySearch request, String userId) {
+
         String transactionId = generateTransactionId();
-        LocalDateTime queryTime = LocalDateTime.now();
 
-        logEvent("Processing delinquency check - Transaction: {}, Identity: {}",
+        log.info("Processing CRB request. txnId={}, identity={}",
                 transactionId, request.getIdentityNumber());
 
-        // Prepare request data for logging
-        String rawRequest = buildRawRequest(request);
-
-        // Call Metropol API
-        JSONObject metropolResponse = metropolClient.queryDelinquency(
+        JSONObject response = safeCall(
                 request.getIdentityNumber(),
-                Integer.parseInt(request.getLoanAmount().toPlainString())
+                request.getLoanAmount().intValue()
         );
 
-        // Map response to report
-        CRBDelinquencyReport report = mapToReport(metropolResponse);
+        log.info("Metropol response: {}", response.toString());
+
+        CRBDelinquencyReport report = mapToReport(response);
         report.setTransactionId(transactionId);
 
-        // Save record
-        saveRecord(request, report, rawRequest, metropolResponse.toString(),
-                userId, queryTime, getResponseTime(metropolResponse));
+        // TODO: Remove mocked CRB PDF in prod
+        // report.setPdfReport(encodePdfFromResources("crbreport.pdf"));
+
+        log.info("Mapped response");
+
+        if (!axWorker.isBlank(report.getPdfReport())) {
+            CreditScoreData creditScoreData;
+            creditScoreData = pdfExtractionService.extract(report.getPdfReport());
+            String code = creditScoreData.getPpi();
+            String creditScore = creditScoreData.getMetroScore();
+            log.info("code {}, creditScore {}", code, creditScore);
+        }
+
+
+        try {
+            saveRecord(request, report, mapper.writeValueAsString(request), response.toString(),
+                    userId, LocalDateTime.now(), getResponseTime(response));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+
         return report;
     }
 
-    public String getDelinquencyCode(String code)
-    {
+    private JSONObject safeCall(String id, int amount) {
 
-        return switch (code)
-        {
-            case "001" -> "ID number not found in the database ";
-            case "002" -> "ID number has been found but it has no credit information";
-            case "003" -> "ID Number has credit info with No NPA ";
-            case "004" -> "Currently delinquent";
-            case "005" -> "ID Number has credit information with at least one Historical NPA ";
-            default -> "Code not defined";
-        };
+        String key = fingerprint(id, amount);
+        System.out.println(key);
+        if (!inFlightRequests.add(key)) {
+            log.warn("Duplicate request blocked for {}", key);
+            throw new RuntimeException("Duplicate request in progress");
+        }
+
+        try {
+            return metropolClient.getReport(id, amount);
+        } finally {
+            log.info("key removed {} ", key);
+            inFlightRequests.remove(key);
+        }
     }
 
-    private CRBDelinquencyReport mapToReport(JSONObject json)
-    {
-        String delinquencyCode =  json.optString("delinquency_code", json.optString("delinquencyCode", ""));
+    private String encodePdfFromResources(String fileName) {
+        try {
+            ClassPathResource resource = new ClassPathResource("report/" + fileName);
+
+            try (InputStream inputStream = resource.getInputStream()) {
+                byte[] bytes = inputStream.readAllBytes();
+                return Base64.getEncoder().encodeToString(bytes);
+            }
+
+        } catch (Exception e) {
+            log.error("Failed to read PDF from resources", e);
+            throw new RuntimeException("PDF processing failed");
+        }
+    }
+
+    private CRBDelinquencySearch buildSearch(String identity, Number amount, String type) {
+        CRBDelinquencySearch search = new CRBDelinquencySearch();
+        search.setIdentityNumber(identity);
+        search.setLoanAmount(new BigDecimal(amount.toString()));
+        search.setIdentityType(type);
+        return search;
+    }
+
+//    private CRBDelinquencyReport mockedData(CRBDelinquencySearch request) {
+//
+//        boolean listed = true;
+//
+//        CRBDelinquencyReport report = new CRBDelinquencyReport();
+//        report.setCreditScore("303");
+//        report.setDelinquencyCode("005");
+//        report.setDelinquencySummary("Historical delinquency True ~ " + getScoreDescription(303));
+//        report.setDelinquencyDescription(getDelinquencyCode("005"));
+//        report.setHasError(false);
+//        report.setIdentityType("National Id");
+//        report.setIdentityTypeDescription("National Id");
+//        report.setIdentityNumber(request.getIdentityNumber());
+//        report.setTransactionId(generateTransactionId());
+//
+//        report.setIsGuarantor("false");
+//        report.setHasFraud("false");
+//        report.setListed("yes");
+//        report.setListingStatus("listed");
+//
+//        return report;
+//    }
+
+    private CRBDelinquencyReport mapToReport(JSONObject json) {
+
+        String encoding = "base64";
+        String code = json.optString("delinquency_code", json.optString("delinquencyCode", ""));
+
+        String creditScore = json.optString("credit_score", "0");
+        String pdfData = json.optString("report", "");
+
+        CreditScoreData creditScoreData;
+        if (!axWorker.isBlank(pdfData)) {
+            creditScoreData = pdfExtractionService.extract(pdfData);
+            code = creditScoreData.getPpi();
+            creditScore = creditScoreData.getMetroScore();
+        }
+
+        boolean listed = "004".equals(code) || "005".equals(code);
+        String rating = getScoreDescription(json.optInt("credit_score", 0));
+
 
         return new CRBDelinquencyReport(
                 json.optString("api_code", ""),
                 json.optString("api_code_description", ""),
-                delinquencyCode, getDelinquencyDescription(delinquencyCode),
+                code,
+                getDelinquencyDescription(code),
                 json.optString("delinquency_summary", ""),
                 json.optBoolean("has_error", false),
                 json.optString("identity_number", ""),
                 json.optString("identity_type", ""),
                 getIdentityTypeDescription(json.optString("identity_type", "")),
-                json.has("loan_amount") ? json.getLong("loan_amount") : null,
-                "004".equals(delinquencyCode) || "005".equals(delinquencyCode) ? "listed" : "not listed",
-                json.has("trx_id") ? json.getString("trx_id") : "",
-                json.has("credit_score") ? json.getString("credit_score") : "",
-                json.has("is_gurantor") ? json.getString("is_gurantor") : "",
-                json.has("has_fraud") ? json.getString("has_fraud") : "",
-                "004".equals(delinquencyCode) || "005".equals(delinquencyCode)
-
+                json.has("loan_amount") ? json.optLong("loan_amount") : null,
+                listed ? "listed" : "not listed",
+                json.optString("trx_id", ""),
+                creditScore,
+                json.optString("is_gurantor", ""),
+                json.optString("has_fraud", ""),
+                listed ? "yes" : "no",
+                rating,
+                pdfData,
+                axWorker.isBlank(pdfData) ? "" : encoding
         );
+    }
+
+    private <T> T executeWithMDC(SupplierWithException<T> action,
+                                 Object identity,
+                                 Object type,
+                                 Object amount) {
+
+        MDC.put("requestId", UUID.randomUUID().toString().substring(0, 8));
+        if (identity != null) MDC.put("identityNumber", identity.toString());
+        if (type != null) MDC.put("type", type.toString());
+        if (amount != null) MDC.put("amount", amount.toString());
+
+        try {
+            return action.get();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            MDC.clear();
+        }
+    }
+
+    @FunctionalInterface
+    private interface SupplierWithException<T> {
+        T get() throws Exception;
+    }
+
+    // ================= LOOKUPS =================
+
+    public String getScoreDescription(int score) {
+        if (score >= 725) return "Very Good (Low risk)";
+        if (score >= 660) return "Good";
+        if (score >= 560) return "Moderate Risk";
+        if (score >= 400) return "Very Poor";
+        return "High default risk";
+    }
+
+    public String getDelinquencyCode(String code) {
+        return switch (code) {
+            case "001" -> "ID not found";
+            case "002" -> "No credit info";
+            case "003" -> "No NPA";
+            case "004" -> "Currently delinquent";
+            case "005" -> "Historical NPA";
+            default -> "Unknown";
+        };
+    }
+
+    private String getDelinquencyDescription(String code) {
+        return getDelinquencyCode(code);
+    }
+
+    private String getIdentityTypeDescription(String type) {
+        return switch (type) {
+            case "001" -> "National ID";
+            case "002" -> "Passport";
+            case "003" -> "Service ID";
+            case "004" -> "Alien Registration";
+            case "005" -> "Business Registration";
+            default -> "Unknown";
+        };
+    }
+
+    private String generateTransactionId() {
+        return "CRB-" + UUID.randomUUID().toString()
+                .replace("-", "")
+                .substring(0, 16)
+                .toUpperCase();
     }
 
     private void saveRecord(CRBDelinquencySearch request, CRBDelinquencyReport report,
                             String rawRequest, String rawResponse, String userId,
-                            LocalDateTime queryTime, int responseTimeMs)
-    {
+                            LocalDateTime queryTime, int responseTimeMs) {
         CRBDelinquencyRecord record = new CRBDelinquencyRecord();
         record.setTransactionId(report.getTransactionId());
         record.setIdentityNumber(request.getIdentityNumber());
@@ -227,8 +364,7 @@ public class CRBDelinquencyService
         repository.save(record);
     }
 
-    private String buildRawRequest(CRBDelinquencySearch request)
-    {
+    private String buildRawRequest(CRBDelinquencySearch request) {
         JSONObject json = new JSONObject();
         json.put("identity_number", request.getIdentityNumber());
         json.put("loan_amount", request.getLoanAmount());
@@ -236,43 +372,9 @@ public class CRBDelinquencyService
         return json.toString();
     }
 
-    private int getResponseTime(JSONObject json)
-    {
+    private int getResponseTime(JSONObject json) {
         return json.has("_response_time_ms") ? json.getInt("_response_time_ms") : 0;
     }
 
-    private String generateTransactionId()
-    {
-        return "CRB-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase();
-    }
 
-    private String getDelinquencyDescription(String code)
-    {
-        if (code == null || code.isEmpty()) return "";
-
-        return switch (code)
-        {
-            case "001" -> "ID number has not been found in the database";
-            case "002" -> "ID number has been found but it has no credit information";
-            case "003" -> "ID Number has credit info with No NPA";
-            case "004" -> "Currently delinquent";
-            case "005" -> "ID Number has credit information with at least one Historical NPA";
-            default -> "Unknown status code: " + code;
-        };
-    }
-
-    private String getIdentityTypeDescription(String type)
-    {
-        if (type == null || type.isEmpty()) return "";
-
-        return switch (type)
-        {
-            case "001" -> "National ID";
-            case "002" -> "Passport";
-            case "003" -> "Service ID";
-            case "004" -> "Alien Registration";
-            case "005" -> "Company/Business Registration";
-            default -> "Unknown Type";
-        };
-    }
 }

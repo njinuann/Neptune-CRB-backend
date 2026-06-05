@@ -132,7 +132,7 @@ public class AXCrypt {
     {
         try
         {
-            System.err.println(".. " + new AXCrypt(DEFAULT_NEW_PASS_PHRASE).decrypt("QuUyEEMudx0mGCTzLN91aw=="));
+            System.err.println(".. " + new AXCrypt(DEFAULT_NEW_PASS_PHRASE).decrypt("6l45KR3t5PljvVAxpfvCyA=="));
             System.err.println(".. " + new AXCrypt(DEFAULT_NEW_PASS_PHRASE).encrypt("training"));
             //   System.err.println(".. "+new BRCryptNew(DEFAULT_NEW_PASS_PHRASE).encrypt("proxy_password"));
 

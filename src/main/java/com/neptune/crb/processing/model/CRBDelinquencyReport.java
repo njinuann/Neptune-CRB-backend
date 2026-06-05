@@ -4,225 +4,261 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class CRBDelinquencyReport {
- private String apiCode;
- private String apiCodeDescription;
- private String delinquencyCode;
- private String delinquencyDescription;
- private String delinquencySummary;
- private Boolean hasError;
- private String identityNumber;
- private String identityType;
- private String identityTypeDescription;
- private Long loanAmount;
- private String transactionId;
- private String listingStatus;
- private String creditScore;
- private String hasFraud;
- private String isGuarantor;
- private boolean isListed;
+    private String apiCode;
+    private String apiCodeDescription;
+    private String delinquencyCode;
+    private String delinquencyDescription;
+    private String delinquencySummary;
+    private Boolean hasError;
+    private String identityNumber;
+    private String identityType;
+    private String identityTypeDescription;
+    private Long loanAmount;
+    private String transactionId;
+    private String listingStatus;
+    private String creditScore;
+    private String hasFraud;
+    private String isGuarantor;
+    private String listed;
+    private String creditScoreRating;
+    private String pdfReport;
+    private String encoding;
 
- public CRBDelinquencyReport()
- {
- }
+    public String getEncoding() {
+        return encoding;
+    }
 
- public CRBDelinquencyReport(String apiCode, String apiCodeDescription, String delinquencyCode, String delinquencyDescription, String delinquencySummary, Boolean hasError, String identityNumber, String identityType, String identityTypeDescription, Long loanAmount, String transactionId, String listingStatus,String creditScore, String isGuarantor,String hasFraud,boolean isListed)
- {
-  this.apiCode = apiCode;
-  this.apiCodeDescription = apiCodeDescription;
-  this.delinquencyCode = delinquencyCode;
-  this.delinquencyDescription = delinquencyDescription;
-  this.delinquencySummary = delinquencySummary;
-  this.hasError = hasError;
-  this.identityNumber = identityNumber;
-  this.identityType = identityType;
-  this.identityTypeDescription = identityTypeDescription;
-  this.loanAmount = loanAmount;
-  this.transactionId = transactionId;
-  this.listingStatus = listingStatus;
-  this.creditScore =creditScore;
-  this.isGuarantor =isGuarantor;
-  this.hasFraud =hasFraud;
-  this.isListed = isListed;
- }
+    public void setEncoding(String encoding) {
+        this.encoding = encoding;
+    }
 
- public boolean getIsListed()
- {
-  return isListed;
- }
+    public CRBDelinquencyReport()
+    {
+    }
 
- public void setIsListed(boolean isListed)
- {
-  this.isListed = isListed;
- }
+    public CRBDelinquencyReport(String apiCode, String apiCodeDescription, String delinquencyCode, String delinquencyDescription, String delinquencySummary, Boolean hasError, String identityNumber, String identityType, String identityTypeDescription, Long loanAmount, String transactionId, String listingStatus,String creditScore, String isGuarantor,String hasFraud,String listed,String creditScoreRating, String pdfReport,String encoding)
+    {
+        this.apiCode = apiCode;
+        this.apiCodeDescription = apiCodeDescription;
+        this.delinquencyCode = delinquencyCode;
+        this.delinquencyDescription = delinquencyDescription;
+        this.delinquencySummary = delinquencySummary;
+        this.hasError = hasError;
+        this.identityNumber = identityNumber;
+        this.identityType = identityType;
+        this.identityTypeDescription = identityTypeDescription;
+        this.loanAmount = loanAmount;
+        this.transactionId = transactionId;
+        this.listingStatus = listingStatus;
+        this.creditScore =creditScore;
+        this.isGuarantor =isGuarantor;
+        this.hasFraud =hasFraud;
+        this.listed = listed;
+        this.creditScoreRating =creditScoreRating;
+        this.pdfReport = pdfReport;
+        this.encoding = encoding;
+    }
 
- public String getCreditScore()
- {
-  return creditScore;
- }
+    public String getListed() {
+        return listed;
+    }
 
- public void setCreditScore(String creditScore)
- {
-  this.creditScore = creditScore;
- }
+    public void setListed(String listed) {
+        this.listed = listed;
+    }
 
- public String getHasFraud()
- {
-  return hasFraud;
- }
+    public String getCreditScore()
+    {
+        return creditScore;
+    }
 
- public void setHasFraud(String hasFraud)
- {
-  this.hasFraud = hasFraud;
- }
+    public void setCreditScore(String creditScore)
+    {
+        this.creditScore = creditScore;
+    }
 
- public String getIsGuarantor()
- {
-  return isGuarantor;
- }
+    public String getHasFraud()
+    {
+        return hasFraud;
+    }
 
- public void setIsGuarantor(String isGuarantor)
- {
-  this.isGuarantor = isGuarantor;
- }
+    public void setHasFraud(String hasFraud)
+    {
+        this.hasFraud = hasFraud;
+    }
 
- public String getApiCode()
- {
-  return apiCode;
- }
+    public String getIsGuarantor()
+    {
+        return isGuarantor;
+    }
 
- public void setApiCode(String apiCode)
- {
-  this.apiCode = apiCode;
- }
+    public void setIsGuarantor(String isGuarantor)
+    {
+        this.isGuarantor = isGuarantor;
+    }
 
- public String getApiCodeDescription()
- {
-  return apiCodeDescription;
- }
+    public String getApiCode()
+    {
+        return apiCode;
+    }
 
- public void setApiCodeDescription(String apiCodeDescription)
- {
-  this.apiCodeDescription = apiCodeDescription;
- }
+    public void setApiCode(String apiCode)
+    {
+        this.apiCode = apiCode;
+    }
 
- public String getDelinquencyCode()
- {
-  return delinquencyCode;
- }
+    public String getApiCodeDescription()
+    {
+        return apiCodeDescription;
+    }
 
- public void setDelinquencyCode(String delinquencyCode)
- {
-  this.delinquencyCode = delinquencyCode;
- }
+    public void setApiCodeDescription(String apiCodeDescription)
+    {
+        this.apiCodeDescription = apiCodeDescription;
+    }
 
- public String getDelinquencyDescription()
- {
-  return delinquencyDescription;
- }
+    public String getDelinquencyCode()
+    {
+        return delinquencyCode;
+    }
 
- public void setDelinquencyDescription(String delinquencyDescription)
- {
-  this.delinquencyDescription = delinquencyDescription;
- }
+    public void setDelinquencyCode(String delinquencyCode)
+    {
+        this.delinquencyCode = delinquencyCode;
+    }
 
- public String getDelinquencySummary()
- {
-  return delinquencySummary;
- }
+    public String getDelinquencyDescription()
+    {
+        return delinquencyDescription;
+    }
 
- public void setDelinquencySummary(String delinquencySummary)
- {
-  this.delinquencySummary = delinquencySummary;
- }
+    public void setDelinquencyDescription(String delinquencyDescription)
+    {
+        this.delinquencyDescription = delinquencyDescription;
+    }
 
- public Boolean getHasError()
- {
-  return hasError;
- }
+    public String getDelinquencySummary()
+    {
+        return delinquencySummary;
+    }
 
- public void setHasError(Boolean hasError)
- {
-  this.hasError = hasError;
- }
+    public void setDelinquencySummary(String delinquencySummary)
+    {
+        this.delinquencySummary = delinquencySummary;
+    }
 
- public String getIdentityNumber()
- {
-  return identityNumber;
- }
+    public Boolean getHasError()
+    {
+        return hasError;
+    }
 
- public void setIdentityNumber(String identityNumber)
- {
-  this.identityNumber = identityNumber;
- }
+    public void setHasError(Boolean hasError)
+    {
+        this.hasError = hasError;
+    }
 
- public String getIdentityType()
- {
-  return identityType;
- }
+    public String getIdentityNumber()
+    {
+        return identityNumber;
+    }
 
- public void setIdentityType(String identityType)
- {
-  this.identityType = identityType;
- }
+    public void setIdentityNumber(String identityNumber)
+    {
+        this.identityNumber = identityNumber;
+    }
 
- public String getIdentityTypeDescription()
- {
-  return identityTypeDescription;
- }
+    public String getIdentityType()
+    {
+        return identityType;
+    }
 
- public void setIdentityTypeDescription(String identityTypeDescription)
- {
-  this.identityTypeDescription = identityTypeDescription;
- }
+    public void setIdentityType(String identityType)
+    {
+        this.identityType = identityType;
+    }
 
- public Long getLoanAmount()
- {
-  return loanAmount;
- }
+    public String getIdentityTypeDescription()
+    {
+        return identityTypeDescription;
+    }
 
- public void setLoanAmount(Long loanAmount)
- {
-  this.loanAmount = loanAmount;
- }
+    public void setIdentityTypeDescription(String identityTypeDescription)
+    {
+        this.identityTypeDescription = identityTypeDescription;
+    }
 
- public String getTransactionId()
- {
-  return transactionId;
- }
+    public Long getLoanAmount()
+    {
+        return loanAmount;
+    }
 
- public void setTransactionId(String transactionId)
- {
-  this.transactionId = transactionId;
- }
+    public void setLoanAmount(Long loanAmount)
+    {
+        this.loanAmount = loanAmount;
+    }
 
- public String getListingStatus()
- {
-  return listingStatus;
- }
+    public String getTransactionId()
+    {
+        return transactionId;
+    }
 
- public void setListingStatus(String listingStatus)
- {
-  this.listingStatus = listingStatus;
- }
+    public void setTransactionId(String transactionId)
+    {
+        this.transactionId = transactionId;
+    }
 
- @Override
- public String toString()
- {
-  return "CRBDelinquencyReport{" +
-          "apiCode='" + apiCode + '\'' +
-          ", apiCodeDescription='" + apiCodeDescription + '\'' +
-          ", delinquencyCode='" + delinquencyCode + '\'' +
-          ", delinquencyDescription='" + delinquencyDescription + '\'' +
-          ", delinquencySummary='" + delinquencySummary + '\'' +
-          ", hasError=" + hasError +
-          ", identityNumber='" + identityNumber + '\'' +
-          ", identityType='" + identityType + '\'' +
-          ", identityTypeDescription='" + identityTypeDescription + '\'' +
-          ", loanAmount=" + loanAmount +
-          ", transactionId='" + transactionId + '\'' +
-          ", listingStatus='" + listingStatus + '\'' +
-          '}';
- }
+    public String getListingStatus()
+    {
+        return listingStatus;
+    }
+
+    public void setListingStatus(String listingStatus)
+    {
+        this.listingStatus = listingStatus;
+    }
+
+    public String getCreditScoreRating()
+    {
+        return creditScoreRating;
+    }
+
+    public void setCreditScoreRating(String creditScoreRating)
+    {
+        this.creditScoreRating = creditScoreRating;
+    }
+
+    public String getPdfReport() {
+        return pdfReport;
+    }
+
+    public void setPdfReport(String pdfReport) {
+        this.pdfReport = pdfReport;
+    }
+
+    @Override
+    public String toString() {
+        return "CRBDelinquencyReport{" +
+                "apiCode='" + apiCode + '\'' +
+                ", apiCodeDescription='" + apiCodeDescription + '\'' +
+                ", delinquencyCode='" + delinquencyCode + '\'' +
+                ", delinquencyDescription='" + delinquencyDescription + '\'' +
+                ", delinquencySummary='" + delinquencySummary + '\'' +
+                ", hasError=" + hasError +
+                ", identityNumber='" + identityNumber + '\'' +
+                ", identityType='" + identityType + '\'' +
+                ", identityTypeDescription='" + identityTypeDescription + '\'' +
+                ", loanAmount=" + loanAmount +
+                ", transactionId='" + transactionId + '\'' +
+                ", listingStatus='" + listingStatus + '\'' +
+                ", creditScore='" + creditScore + '\'' +
+                ", hasFraud='" + hasFraud + '\'' +
+                ", isGuarantor='" + isGuarantor + '\'' +
+                ", listed='" + listed + '\'' +
+                ", creditScoreRating='" + creditScoreRating + '\'' +
+                ", pdfReport='" + pdfReport + '\'' +
+                ", encoding='" + encoding + '\'' +
+                '}';
+    }
 
 
 }

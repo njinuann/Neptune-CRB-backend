@@ -173,14 +173,14 @@ public class ReportingService
         }
         return switch (reportType.toUpperCase())
         {
-            case "DP" -> "SELECT * FROM " + axWorker.channelSchemaName + ".V_CRB_DAILY_PAYMENT";
-            case "DE" -> "SELECT * FROM " + axWorker.channelSchemaName + ".V_CRB_DELETE";
-            case "CI" -> "SELECT * FROM " + axWorker.channelSchemaName + ".V_CRB_NON_INDIVIDUAL_CONSUMER";
-            case "CE" -> "SELECT * FROM " + axWorker.channelSchemaName + ".V_CRB_INDIVIDUAL_CONSUMER";
-            case "CA" -> "SELECT * FROM " + axWorker.channelSchemaName + ".V_CRB_CREDIT_APP_INFORMATION";
+            case "DP" -> "SELECT * FROM " + axWorker.channelSchemaName + ".V_CRB_DAILY_PAYMENT ORDER BY ACCOUNT_NUMBER ";
+            case "DE" -> "SELECT * FROM " + axWorker.channelSchemaName + ".V_CRB_DELETE  ORDER BY ACCOUNT_NUMBER ";
+            case "CI" -> "SELECT * FROM " + axWorker.channelSchemaName + ".V_CRB_NON_INDIVIDUAL_CONSUMER  ORDER BY ACCOUNT_NUMBER ";
+            case "CE" -> "SELECT * FROM " + axWorker.channelSchemaName + ".V_CRB_INDIVIDUAL_CONSUMER  ORDER BY ACCOUNT_NUMBER ";
+            case "CA" -> "SELECT * FROM " + axWorker.channelSchemaName + ".V_CRB_CREDIT_APP_INFORMATION  ORDER BY ACCOUNT_NUMBER ";
             case "CR" -> "SELECT * FROM " + axWorker.channelSchemaName + ".V_CRB_COLLATERAL_INFORMATION";
-            case "SI" -> "SELECT * FROM " + axWorker.channelSchemaName + ".V_CRB_STAKEHOLDER_INFORMATION";
-            case "GI" -> "SELECT * FROM " + axWorker.channelSchemaName + ".V_CRB_GUARANTOR_INFORMATION";
+            case "SI" -> "SELECT * FROM " + axWorker.channelSchemaName + ".V_CRB_STAKEHOLDER_INFORMATION  ORDER BY ACCOUNT_NUMBER ";
+            case "GI" -> "SELECT * FROM " + axWorker.channelSchemaName + ".V_CRB_GUARANTOR_INFORMATION  ORDER BY PRIMARY_ID_DOC_NO  ";
             case "SV" ->
                     "SELECT  TRX_ID, SUCCESS, HAS_ERROR, API_CODE, API_CODE_DESCRIPTION, MESSAGE, REFERENCE_CODE,  " +
                             " DATA_REF AS report_type, LIVE_STATUS, RECORDS_COUNT, RECORDS_REJECTED, STATUS_ID, STATUS_NAME,  " +
@@ -237,12 +237,25 @@ public class ReportingService
     }
 
 
-    public List<Map<String, Object>> getReportViewData(String reportType)
+    public List<Map<String, Object>> getReportViewData(
+            String reportType,int page,
+            int pageSize)
     {
         try
         {
-            String query = processCsv() ? viewCsvQuery(reportType) : viewQuery(reportType);
-            List<Map<String, Object>> data = submissionRepository.queryListItems(query);
+            int offset = (page - 1) * pageSize;
+            String baseQuery =
+                    processCsv() ? viewCsvQuery(reportType) : viewQuery(reportType);
+
+            String paginatedQuery =
+                    baseQuery + " OFFSET " + offset +
+                            " ROWS FETCH NEXT " + pageSize + " ROWS ONLY";
+
+            List<Map<String, Object>> data =
+                    submissionRepository.queryListItems(paginatedQuery);
+
+//            String query = processCsv() ? viewCsvQuery(reportType) : viewQuery(reportType);
+//            List<Map<String, Object>> data = submissionRepository.queryListItems(query);
             logEvent(data);
 
             return data;
@@ -434,6 +447,24 @@ public class ReportingService
     }
 
     public List<Map<String, Object>> getDataMetrics()
+    {
+        try
+        {
+            String query = "SELECT *  " +
+                    " FROM " + axWorker.channelSchemaName + ".V_CRB_VALIDATION_SUMMARY_VIEW " +
+                    " ORDER BY CASE WHEN category = 'TOTAL' THEN 2 ELSE 1 END, records_count DESC";
+            List<Map<String, Object>> data = submissionRepository.queryListItems(query);
+            logEvent(data);
+
+            return data;
+        } catch (Exception e)
+        {
+            logError("Error processing reports for report metrics", e);
+            return null;
+        }
+    }
+
+    public List<Map<String, Object>> getReportSummary()
     {
         try
         {

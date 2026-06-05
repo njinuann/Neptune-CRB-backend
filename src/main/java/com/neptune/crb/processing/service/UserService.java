@@ -78,7 +78,7 @@ public class UserService
 
     public boolean existsByReference(String loginId)
     {
-        String sql = "SELECT COUNT(*) FROM " + axWorker.channelSchemaName + ".CRB_USER WHERE LOGIN_ID = ?";
+        String sql = "SELECT COUNT(*) FROM " + axWorker.channelSchemaName + ".CRB_USER WHERE UPPER(LOGIN_ID) = ?";
         // Consider adding status condition if needed: AND STATUS = 'ACTIVE'
 
         try
@@ -141,7 +141,8 @@ public class UserService
                 "JOIN " + axWorker.channelSchemaName + ".CRB_USER C " +
                 "ON A.LOGIN_ID = C.LOGIN_ID " +
                 "WHERE A.LOCKED_FG = 'N' AND A.LOGIN_ID = ? AND B.PASSWD = ? AND B.REC_ST = 'A'";
-
+        System.out.println("sql "+sql);
+        System.out.println("encryptedPassword "+encryptedPassword);
         try
         {
             return jdbcTemplate.queryForObject(sql, new Object[]{userName, encryptedPassword},
