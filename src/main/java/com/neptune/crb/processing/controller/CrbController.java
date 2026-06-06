@@ -716,13 +716,16 @@ public ResponseEntity<ApiResponse<?>> submitViewData( @PathVariable String id,
         System.out.println("=================/views/{id}/submissions ============== " + reportType);
         System.out.println(reportType);
         try {
-            //   String reportType = id; //resolveViewById(id);
+
             System.out.println("=================reportType ============== " + reportType);
-            List<Map<String, Object>> report = reportingService.getReportViewData(reportType,page, pageSize);
+           // List<Map<String, Object>> data = new ArrayList<>();
+            Map<String, Object> data = reportingService.getReportSummary();
+            //data.add(report);
+            System.out.println("data "+ data);
             ApiResponse<?> response = new ApiResponse<>(
                     "00",
                     "Successful",
-                    report,
+                    data,
                     request.getRequestURI()
             );
 

@@ -464,21 +464,37 @@ public class ReportingService
         }
     }
 
-    public List<Map<String, Object>> getReportSummary()
-    {
-        try
-        {
-            String query = "SELECT *  " +
-                    " FROM " + axWorker.channelSchemaName + ".V_CRB_VALIDATION_SUMMARY_VIEW " +
-                    " ORDER BY CASE WHEN category = 'TOTAL' THEN 2 ELSE 1 END, records_count DESC";
-            List<Map<String, Object>> data = submissionRepository.queryListItems(query);
-            logEvent(data);
+    public Map<String, Object> getReportSummary() {
+        try {
+            String query =
+                    "SELECT cvs.TRX_ID AS \"id\", " +
+                            " CASE WHEN cvs.DATA_REF = 'CE' THEN 'Individual Consumer' " +
+                            "      WHEN cvs.DATA_REF = 'CI' THEN 'Non Individual Consumer' " +
+                            "      WHEN cvs.DATA_REF = 'DP' THEN 'Daily Payment' " +
+                            " END AS \"viewName\", " +
+                            " cvs.DATA_REF AS \"category\", " +
+                            " cvs.RECORDS_COUNT AS \"recordCount\", " +
+                            " cvs.RECORDS_PASSED AS \"passedCount\", " +
+                            " cvs.RECORDS_REJECTED AS \"rejectedCount\", " +
+                            " 'completed' AS \"status\", " +
+                            " 'NEPTUNE' AS \"submittedBy\", " +
+                            " TO_CHAR(cvs.CREATED_AT, 'YYYY-MM-DD\"T\"HH24:MI:SS') AS \"submittedAt\" " +
+                            " FROM " + axWorker.channelSchemaName + ".CRB_VALIDATION_STATUS cvs  ORDER BY cvs.CREATED_AT desc";
 
-            return data;
-        } catch (Exception e)
-        {
+            List<Map<String, Object>> submissions =
+                    submissionRepository.queryListItemsMaintainCase(query);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("submissions", submissions);
+
+//            Map<String, Object> response = new HashMap<>();
+//            response.put("data", data);
+
+            return response;
+
+        } catch (Exception e) {
             logError("Error processing reports for report metrics", e);
-            return null;
+            return Collections.emptyMap();
         }
     }
 

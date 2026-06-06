@@ -438,7 +438,38 @@ public class SubmissionRepository
         );
     }
 
+    public List<Map<String, Object>> queryListItemsMaintainCase(String query)
+    {
+        if (axWorker.processCsv.equals("Y"))
+        {
+            return queryListOrderedItems(query);
+        }
+        return jdbcTemplate.query(
+                query,
+                (rs, rowNum) -> {
+                    ResultSetMetaData metaData = rs.getMetaData();
+                    int columnCount = metaData.getColumnCount();
 
+                    // Temporary map to hold columns (unsorted)
+                    Map<String, Object> tempRow = new HashMap<>();
+
+                    for (int i = 1; i <= columnCount; i++)
+                    {
+                        String columnName = metaData.getColumnName(i);
+                        Object columnValue = rs.getObject(i);
+                        tempRow.put(columnName, columnValue);
+                    }
+
+                    // sort keys alphabetically and insert into LinkedHashMap
+                    Map<String, Object> sortedRow = new LinkedHashMap<>();
+                    tempRow.keySet().stream()
+                            .sorted() // sorts (a → z)
+                            .forEach(key -> sortedRow.put(key, tempRow.get(key)));
+
+                    return sortedRow;
+                }
+        );
+    }
     public void batchInsert(List<String> jsonResponses)
     {
         jdbcTemplate.batchUpdate(
