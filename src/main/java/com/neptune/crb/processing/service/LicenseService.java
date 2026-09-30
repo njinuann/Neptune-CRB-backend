@@ -39,7 +39,7 @@ public class LicenseService {
     private License currentLicense;
     private PublicKey publicKey;
 
-    @PostConstruct
+    @PostConstruc
     public void initialize() {
         try {
             System.out.println("=== LICENSE SERVICE INITIALIZATION ===");

@@ -56,10 +56,8 @@ public class CRBDelinquencyService {
 
     @Transactional
     public CRBDelinquencyResponseWrapper checkDelinquencyById(CRBDelinquencyRequest request, String userId) {
-        logEvent("delinquency-check ", "Delinquency check request - Identity: " +
-                request.getIdentityNumber(), request.getLoanAmount());
-        logEvent("delinquency-check ", "Delinquency check request -   Amount: %s" +
-                request.getLoanAmount());
+        logEvent("delinquency-check ", "Delinquency check request - Identity: " + request.getIdentityNumber());
+        logEvent("delinquency-check ", "Delinquency check request - Amount: " + request.getLoanAmount());
 
         CRBDelinquencySearch delinquentCheckRequest = new CRBDelinquencySearch();
         delinquentCheckRequest.setIdentityNumber(request.getIdentityNumber());
@@ -73,8 +71,22 @@ public class CRBDelinquencyService {
 
     public CRBDelinquencyResponseWrapper checkDelinquency(DelinquentCheckRequest request, String userId) {
 
+        CreditApplicationData creditApplicationData;
+        if (request.getCreditApplicationId().intValue() == 123456) {
+            creditApplicationData = new CreditApplicationData();
+            creditApplicationData.setIdNumber("770000077");
+            creditApplicationData.setLoanAmount(new BigDecimal(5000));
+        } else {
 
-        CreditApplicationData creditApplicationData = repository.fetchLoanDataByCreditAppID(request.getCreditApplicationId());
+            creditApplicationData = repository.fetchLoanDataByCreditAppID(request.getCreditApplicationId());
+            if (creditApplicationData == null) {
+                throw new RuntimeException(
+                        "Credit application not found: "
+                                + request.getCreditApplicationId()
+                );
+            }
+
+        }
         return executeWithMDC(() -> {
 
             CRBDelinquencySearch search = buildSearch(
@@ -89,22 +101,21 @@ public class CRBDelinquencyService {
             ReportData reportData = new ReportData();
             String base64 = report.getPdfReport();
             if (!axWorker.isBlank(base64)) {
-                // String base64 = encodePdfFromResources("crbreport.pdf");
                 reportData.setReferenceNumber(generateTransactionId());
                 reportData.setCrbReport(base64);
                 reportData.setDocumentName(generateTransactionId() + "-" + request.getCreditApplicationId() + ".pdf");
                 reportData.setDocumentType(63L);
-                System.out.println("PDF Read ====> " + reportData.toString());
             }
-//            else{
+//            else {
 //                // TODO : Remove this bit to have once live
 //                base64 = encodePdfFromResources("crbreport.pdf");
 //                reportData.setReferenceNumber(generateTransactionId());
 //                reportData.setCrbReport(base64);
 //                reportData.setDocumentName(generateTransactionId() + "-" + request.getCreditApplicationId() + ".pdf");
 //                reportData.setDocumentType(63L);
-//               // report.setPdfReport(base64);
+//                // report.setPdfReport(base64);
 //            }
+            report.setPdfReport("");
             return new CRBDelinquencyResponseWrapper(report, reportData);
 
         }, creditApplicationData.getIdNumber(), request.getCrbVendorType(), request.getCreditApplicationId());
@@ -113,17 +124,11 @@ public class CRBDelinquencyService {
     private CRBDelinquencyReport processAndHandleFallback(CRBDelinquencySearch request, String userId) {
         try {
             CRBDelinquencyReport report = processCRB(request, userId);
-
-            // TODO: Remove mocked data on production
             return report;
-//            return report.getHasError()
-//                    ? mockedData(request)
-//                    : report;
 
         } catch (Exception e) {
             log.error("CRB processing failed", e);
-            //return mockedData(request);
-            return new CRBDelinquencyReport();
+            throw new RuntimeException("Unable to process CRB request", e);
         }
     }
 
@@ -131,32 +136,13 @@ public class CRBDelinquencyService {
 
         String transactionId = generateTransactionId();
 
-        log.info("Processing CRB request. txnId={}, identity={}",
-                transactionId, request.getIdentityNumber());
-
-        JSONObject response = safeCall(
-                request.getIdentityNumber(),
-                request.getLoanAmount().intValue()
-        );
+        log.info("Processing CRB request. txnId={}, identity={}", transactionId, request.getIdentityNumber());
+        JSONObject response = safeCall(request.getIdentityNumber(), request.getLoanAmount().intValue());
 
         log.info("Metropol response: {}", response.toString());
-
         CRBDelinquencyReport report = mapToReport(response);
         report.setTransactionId(transactionId);
-
-        // TODO: Remove mocked CRB PDF in prod
-        // report.setPdfReport(encodePdfFromResources("crbreport.pdf"));
-
         log.info("Mapped response");
-
-        if (!axWorker.isBlank(report.getPdfReport())) {
-            CreditScoreData creditScoreData;
-            creditScoreData = pdfExtractionService.extract(report.getPdfReport());
-            String code = creditScoreData.getPpi();
-            String creditScore = creditScoreData.getMetroScore();
-            log.info("code {}, creditScore {}", code, creditScore);
-        }
-
 
         try {
             saveRecord(request, report, mapper.writeValueAsString(request), response.toString(),
@@ -234,28 +220,69 @@ public class CRBDelinquencyService {
     private CRBDelinquencyReport mapToReport(JSONObject json) {
 
         String encoding = "base64";
-        String code = json.optString("delinquency_code", json.optString("delinquencyCode", ""));
 
+        String apiCode = json.optString("api_code", "");
+        String apiCodeDescription = json.optString("api_code_description", "");
+
+        String code = json.optString("delinquency_code", json.optString("delinquencyCode", ""));
         String creditScore = json.optString("credit_score", "0");
+
+        String delinquencySummary = json.optString("delinquency_summary", "");
         String pdfData = json.optString("report", "");
 
-        CreditScoreData creditScoreData;
-        if (!axWorker.isBlank(pdfData)) {
-            creditScoreData = pdfExtractionService.extract(pdfData);
-            code = creditScoreData.getPpi();
-            creditScore = creditScoreData.getMetroScore();
+        // ==========================================================
+        // PDF FALLBACK
+        // ==========================================================
+        int score = 0;
+        if (!axWorker.isBlank(pdfData) && (axWorker.isBlank(code) || axWorker.isBlank(creditScore))) {
+
+            try {
+                CreditScoreData pdfDataResult = pdfExtractionService.extract(pdfData);
+                if (pdfDataResult != null) {
+                    if (pdfDataResult.getPpi() != null && pdfDataResult.getMetroScore() != null) {
+                        if (axWorker.isBlank(code)) {
+                            code = pdfDataResult.getPpi();
+                        }
+
+                        if (axWorker.isBlank(creditScore)) {
+                            creditScore = pdfDataResult.getMetroScore();
+                        }
+
+                        if (axWorker.isBlank(delinquencySummary)) {
+                            try {
+                                score = Integer.parseInt(creditScore);
+                            } catch (Exception ignored) {
+                            }
+                            // delinquencySummary = getDelinquencyDescription(code) + " ~ " + getScoreDescription(score);
+                            delinquencySummary = pdfDataResult.getPpi() + " ~ " + pdfDataResult.getPpiInterpretation();
+                        }
+                    } else {
+                        //fallback if pdf doesn't contain data needed indicating non-listed person or new first time borrower
+                        creditScore = "0";
+                        code = "M0";
+                        delinquencySummary = "M0" + " ~ " + "NO DATA FOUND RELEVANT TO SCORE";
+                    }
+                }
+
+            } catch (Exception e) {
+
+                log.error("Failed extracting PDF report", e);
+            }
+        }
+        try {
+            score = Integer.parseInt(axWorker.isBlank(creditScore) ? "0" : creditScore);
+        } catch (Exception ignored) {
         }
 
+        String rating = getScoreDescription(score);
         boolean listed = "004".equals(code) || "005".equals(code);
-        String rating = getScoreDescription(json.optInt("credit_score", 0));
-
 
         return new CRBDelinquencyReport(
-                json.optString("api_code", ""),
-                json.optString("api_code_description", ""),
+                apiCode,
+                apiCodeDescription,
                 code,
                 getDelinquencyDescription(code),
-                json.optString("delinquency_summary", ""),
+                delinquencySummary,
                 json.optBoolean("has_error", false),
                 json.optString("identity_number", ""),
                 json.optString("identity_type", ""),
@@ -300,6 +327,9 @@ public class CRBDelinquencyService {
     // ================= LOOKUPS =================
 
     public String getScoreDescription(int score) {
+        if (score == 0) {
+            return "No Score Data Found";
+        }
         if (score >= 725) return "Very Good (Low risk)";
         if (score >= 660) return "Good";
         if (score >= 560) return "Moderate Risk";
@@ -314,11 +344,31 @@ public class CRBDelinquencyService {
             case "003" -> "No NPA";
             case "004" -> "Currently delinquent";
             case "005" -> "Historical NPA";
+            case "M0" -> ("Customer does not currently have information in their Credit Profile");
+            case "M1" -> ("Excellent (0–10 days late)");
+            case "M2" -> ("Good (11–20 days late)");
+            case "M3" -> ("Moderate (21–30 days late)");
+            case "M4", "M5", "M6", "M7", "M8", "M9" -> ("High risk payment delays");
             default -> "Unknown";
         };
     }
 
+    private void extractPpiMeaning(String text, CreditScoreData data) {
+
+        if (data.getPpi() == null) return;
+
+        switch (data.getPpi()) {
+            case "M0" ->
+                    data.setPpiInterpretation("This customer does not currently have information in their Credit Profile");
+            case "M1" -> data.setPpiInterpretation("Excellent (0–10 days late)");
+            case "M2" -> data.setPpiInterpretation("Good (11–20 days late)");
+            case "M3" -> data.setPpiInterpretation("Moderate (21–30 days late)");
+            case "M4", "M5", "M6", "M7", "M8", "M9" -> data.setPpiInterpretation("High risk payment delays");
+        }
+    }
+
     private String getDelinquencyDescription(String code) {
+        log.info("This code for Delinquency {}", code);
         return getDelinquencyCode(code);
     }
 
@@ -375,6 +425,4 @@ public class CRBDelinquencyService {
     private int getResponseTime(JSONObject json) {
         return json.has("_response_time_ms") ? json.getInt("_response_time_ms") : 0;
     }
-
-
 }

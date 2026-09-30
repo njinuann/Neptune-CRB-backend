@@ -6,6 +6,7 @@ import com.neptune.crb.processing.model.CreditApplicationData;
 import com.neptune.crb.processing.util.AXWorker;
 import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -13,6 +14,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.neptune.crb.processing.util.Logger.logEvent;
@@ -80,26 +82,98 @@ public class CRBDelinquencyRepository {
     }
 
     public CreditApplicationData fetchLoanDataByCreditAppID(Long creditApplicationId) {
+        String schema = axWorker.coreSchemaName;
 
-        String sql = "SELECT P.SOCIAL_SECURITY_NO, CA.PRIME_LIMIT_AMT " +
-                " FROM " + axWorker.coreSchemaName + ".CREDIT_APPL CA JOIN " + axWorker.coreSchemaName + ".PERSON P " +
-                " ON CA.CUST_ID=P.CUST_ID WHERE APPL_ID = ?";
-
-        return jdbcTemplate.queryForObject(
-                sql,
-                this::mapLoanDataRow,
-                creditApplicationId
-        );
+        // DEBUG: Log the schema
+        logEvent("Schema:", schema);
+        logEvent("Application ID type:", creditApplicationId.getClass().getName());
+        logEvent("Application ID value:", creditApplicationId);
+//        String sql = "SELECT P.SOCIAL_SECURITY_NO, CA.PRIME_LIMIT_AMT " +
+//                " FROM " + axWorker.coreSchemaName + ".CREDIT_APPL CA JOIN " + axWorker.coreSchemaName + ".PERSON P " +
+//                " ON CA.CUST_ID=P.CUST_ID WHERE APPL_ID = ?";
+        String sql = "SELECT P.SOCIAL_SECURITY_NO AS socialSecurityNo, " +
+                "CA.PRIME_LIMIT_AMT AS primeLimitAmt " +
+                "FROM " + schema.toUpperCase() + ".CREDIT_APPL CA " +
+                "JOIN " + schema.toUpperCase() + ".PERSON P ON CA.CUST_ID = P.CUST_ID " +
+                "WHERE CA.APPL_ID = ?";
+        try {
+            logEvent("fetch creditType ", sql);
+            logEvent("fetch cr appl id ", creditApplicationId);
+            return jdbcTemplate.queryForObject(
+                    sql,
+                    this::mapLoanDataRow,
+                    creditApplicationId
+            );
+        } catch (DataAccessException e) {
+            throw new RuntimeException(e);
+        }
     }
-
+//public CreditApplicationData fetchLoanDataByCreditAppID(Long creditApplicationId) {
+//    String schema = axWorker.coreSchemaName;
+//
+//    // DEBUG: Log the schema
+//    logEvent("Schema:", schema);
+//    logEvent("Application ID type:", creditApplicationId.getClass().getName());
+//    logEvent("Application ID value:", creditApplicationId);
+//
+//    // DEBUG: Try with explicit type mapping
+//    String sql = "SELECT P.SOCIAL_SECURITY_NO AS socialSecurityNo, " +
+//            "CA.PRIME_LIMIT_AMT AS primeLimitAmt " +
+//            "FROM " + schema.toUpperCase() + ".CREDIT_APPL CA " +
+//            "JOIN " + schema.toUpperCase() + ".PERSON P ON CA.CUST_ID = P.CUST_ID " +
+//            "WHERE CA.APPL_ID = ?";
+//
+//    try {
+//        logEvent("sql:", sql);
+//        // DEBUG: Try queryForList to see if any rows are returned
+//        List<Map<String, Object>> results = jdbcTemplate.queryForList(sql, creditApplicationId);
+//        logEvent("Number of results:", results.size());
+//
+//        if (results.isEmpty()) {
+//            // Try with the exact same SQL you used manually
+//            logEvent("No results found with parameter: " + creditApplicationId);
+//
+//            // DEBUG: Try a count query
+//            String countSql = "SELECT COUNT(*) FROM " + schema + ".CREDIT_APPL WHERE APPL_ID = ?";
+//            Integer count = jdbcTemplate.queryForObject(countSql, Integer.class, creditApplicationId);
+//            logEvent("Count of records with this APPL_ID:", count);
+//
+//            if (count == 0) {
+//                // Get some sample IDs to see what's in the table
+//                String sampleSql = "SELECT APPL_ID FROM " + schema + ".CREDIT_APPL FETCH FIRST 5 ROWS ONLY";
+//                List<Long> sampleIds = jdbcTemplate.queryForList(sampleSql, Long.class);
+//                logEvent("Sample APPL_IDs in table:", sampleIds);
+//            }
+//
+//            return null; // or throw a more specific exception
+//        }
+//
+//        return jdbcTemplate.queryForObject(
+//                sql,
+//                this::mapLoanDataRow,
+//                creditApplicationId
+//        );
+//    } catch (DataAccessException e) {
+//        logEvent("Error details:", e.getMessage());
+//        throw new RuntimeException(e);
+//    }
+//}
     public CreditApplicationData mapLoanDataRow(ResultSet rs, int rowNum) throws SQLException {
-//P.SOCIAL_SECURITY_NO, CA.PRIME_LIMIT_AMT
         CreditApplicationData record = new CreditApplicationData();
-
-        record.setIdNumber(rs.getString("SOCIAL_SECURITY_NO"));
-        record.setLoanAmount(rs.getBigDecimal("PRIME_LIMIT_AMT"));
+        record.setIdNumber(rs.getString("socialSecurityNo"));
+        record.setLoanAmount(rs.getBigDecimal("primeLimitAmt"));
         record.setIdType("001");
-
         return record;
     }
+
+//    public CreditApplicationData mapLoanDataRow(ResultSet rs, int rowNum) throws SQLException {
+////P.SOCIAL_SECURITY_NO, CA.PRIME_LIMIT_AMT
+//        CreditApplicationData record = new CreditApplicationData();
+//
+//        record.setIdNumber(rs.getString("SOCIAL_SECURITY_NO"));
+//        record.setLoanAmount(rs.getBigDecimal("PRIME_LIMIT_AMT"));
+//        record.setIdType("001");
+//
+//        return record;
+//    }
 }

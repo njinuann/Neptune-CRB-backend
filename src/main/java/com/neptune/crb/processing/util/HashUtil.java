@@ -33,11 +33,9 @@ public class HashUtil
         {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
 
-            byte[] hashBytes = digest.digest(
-                    valueToHash.getBytes(StandardCharsets.UTF_8)
+            byte[] hashBytes = digest.digest( valueToHash.getBytes(StandardCharsets.UTF_8)
             );
-
-            return bytesToHex(hashBytes); // must be lowercase hex
+             return bytesToHex(hashBytes); // must be lowercase hex
         } catch (Exception e)
         {
             throw new RuntimeException("Unable to generate Metropol hash", e);
@@ -47,13 +45,10 @@ public class HashUtil
 
     private static String bytesToHex(byte[] bytes)
     {
-        StringBuilder hex =
-                new StringBuilder(bytes.length * 2);
-
+        StringBuilder hex = new StringBuilder(bytes.length * 2);
         for (byte b : bytes)
         {
-            String s =
-                    Integer.toHexString(0xff & b);
+            String s = Integer.toHexString(0xff & b);
 
             if (s.length() == 1)
             {

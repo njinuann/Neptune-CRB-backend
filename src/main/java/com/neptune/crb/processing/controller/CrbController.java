@@ -17,6 +17,7 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -522,10 +523,10 @@ public class CrbController {
     }
 
     @GetMapping("/views/{id}/data")
-    public ResponseEntity<ApiResponse<?>> getViewData( @PathVariable String id,
-                                                       @RequestParam(defaultValue = "1") int page,
-                                                       @RequestParam(defaultValue = "100") int pageSize,
-                                                       HttpServletRequest request) {
+    public ResponseEntity<ApiResponse<?>> getViewData(@PathVariable String id,
+                                                      @RequestParam(defaultValue = "1") int page,
+                                                      @RequestParam(defaultValue = "100") int pageSize,
+                                                      HttpServletRequest request) {
         System.out.println("=================/views/{id}/data ============== " + id);
         System.out.println(id);
         try {
@@ -555,13 +556,13 @@ public class CrbController {
     public ResponseEntity<?> checkErrors(@PathVariable String viewId, @RequestParam String reportCode,
                                          @RequestParam(defaultValue = "1") int page,
                                          @RequestParam(defaultValue = "100") int pageSize,
-                                         HttpServletRequest request  ) {
+                                         HttpServletRequest request) {
         System.out.println("=================/views/{id}/data ============== " + viewId);
         System.out.println(viewId);
         try {
             String reportType = resolveViewById(viewId);
             System.out.println("=================reportType ============== " + reportType);
-            List<Map<String, Object>> report = reportingService.getReportViewData(reportType,page, pageSize);
+            List<Map<String, Object>> report = reportingService.getReportViewData(reportType, page, pageSize);
             ApiResponse<?> response = new ApiResponse<>(
                     "00",
                     "Successful",
@@ -582,7 +583,7 @@ public class CrbController {
     }
 
 
-//    @PostMapping("/views/{id}/submit")
+    //    @PostMapping("/views/{id}/submit")
 //    public ResponseEntity<ApiResponse<?>> submitViewData(@PathVariable String id, HttpServletRequest request) {
 //        System.out.println("=================/views/{id}/data ==============");
 //        System.out.println(id);
@@ -622,67 +623,159 @@ public class CrbController {
 //            return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
 //        }
 //    }
-@PostMapping("/views/{id}/submit")
-public ResponseEntity<ApiResponse<?>> submitViewData( @PathVariable String id,
-                                                      @RequestBody SubmitViewRequest request,   // ← replaces HttpServletRequest
-                                                      HttpServletRequest httpRequest ) {
-    System.out.println("=================/views/{id}/data ==============");
-    System.out.println(id);
-    List<Map<String, String>> views = new ArrayList<>();
-    try {
-        // Access the submitted records
-        List<Map<String, Object>> records = request.getViewData();
+//    @PostMapping("/views/{id}/submit")
+//    public ResponseEntity<ApiResponse<?>> submitViewData(@PathVariable String id,
+//                                                         @RequestBody SubmitViewRequest request,   // ← replaces HttpServletRequest
+//                                                         HttpServletRequest httpRequest) {
+//        System.out.println("=================/views/{id}/submit ==============");
+//        System.out.println(id);
+//        List<Map<String, String>> views = new ArrayList<>();
+//        try {
+//            // Access the submitted records
+//            List<Map<String, Object>> records = request.getViewData();
+//
+//            // Know if this was a filtered submission
+//            boolean wasFiltered = request.getFilterContext() != null
+//                    && request.getFilterContext().isFilterApplied();
+//
+//            System.out.println("wasFiltered " + wasFiltered);
+//
+//            if (wasFiltered) {
+//                // How many records total vs filtered
+//                long total = request.getFilterContext().getTotalRecords();
+//                System.out.println("total " + total);
+//                long submittedValue = request.getFilterContext().getFilteredRecords();
+//                System.out.println("submittedValue " + submittedValue);
+//
+//                // The search filter that was applied (null if none)
+//                SearchFilter searchFilter = request.getFilterContext().getSearchFilter();
+//                System.out.println("searchFilter " + searchFilter);
+//                // e.g. field = "account_number", value = "KCB"
+//
+//                // The rule filters that were matched
+//                List<FilterRule> appliedRules = request.getFilterContext().getRuleFilter();
+//                System.out.println("appliedRules " + appliedRules);
+//            }
+//            String reportType = resolveViewById(id);
+//            System.out.println("reportType " + reportType);
+//
+//            if (!reportingService.reportEnabled(reportType)) {
+//                ApiResponse<Object> errorResponse = new ApiResponse<>(
+//                        "CRB_099",
+//                        "DISABLED",
+//                        "This report is not enabled for submission. Please contact System Admin!",
+//                        httpRequest.getRequestURI()
+//                );
+//                return new ResponseEntity<>(errorResponse, HttpStatus.PRECONDITION_FAILED);
+//            }
+//
+//            boolean submitted = reportingService.processReportAPIData(reportType, true);
+//            if (submitted) {
+//                ApiResponse<?> response = new ApiResponse<>(
+//                        "00",
+//                        "Successful",
+//                        views,
+//                        httpRequest.getRequestURI()
+//                );
+//                return new ResponseEntity<>(response, HttpStatus.OK);
+//            } else {
+//                return new ResponseEntity<>(null, HttpStatus.PROCESSING);
+//            }
+//
+//        } catch (Exception e) {
+//            ApiResponse<Object> errorResponse = new ApiResponse<>(
+//                    "CRB_080",
+//                    "FAILED",
+//                    e.getMessage(),
+//                    httpRequest.getRequestURI()
+//            );
+//            return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
+//        }
+//    }
 
-        // Know if this was a filtered submission
-        boolean wasFiltered = request.getFilterContext() != null
-                && request.getFilterContext().isFilterApplied();
+    @PostMapping("/views/{id}/submit")
+    public ResponseEntity<ApiResponse<?>> submitViewData(@PathVariable String id,
+                                                         @RequestBody SubmitViewRequest request,
+                                                         HttpServletRequest httpRequest) {
+        System.out.println("=================/views/{id}/submit ==============");
+        System.out.println("View ID: " + id);
 
-        // How many records total vs filtered
-        long total     = request.getFilterContext().getTotalRecords();
-        long submittedValue = request.getFilterContext().getFilteredRecords();
+        List<Map<String, String>> views = new ArrayList<>();
 
-        // The search filter that was applied (null if none)
-        SearchFilter searchFilter = request.getFilterContext().getSearchFilter();
-        // e.g. field = "account_number", value = "KCB"
+        try {
+            // Validate view data
+            List<Map<String, Object>> records = request.getViewData();
+            if (records == null || records.isEmpty()) {
+                return createErrorResponse("CRB_001", "No view data provided in request",
+                        httpRequest.getRequestURI(), HttpStatus.BAD_REQUEST);
+            }
 
-        // The rule filters that were matched
-        List<FilterRule> appliedRules = request.getFilterContext().getRuleFilter();
+            // Handle filter context with Optional
+            Optional.ofNullable(request.getFilterContext())
+                    .ifPresentOrElse(
+                            ctx -> {
+                                System.out.println("Filter context present");
+                                boolean wasFiltered = ctx.isFilterApplied();
+                                System.out.println("wasFiltered: " + wasFiltered);
 
-        String reportType = resolveViewById(id);
-        if (!reportingService.reportEnabled(reportType)) {
-            ApiResponse<Object> errorResponse = new ApiResponse<>(
-                    "CRB_099",
-                    "DISABLED",
-                    "This report is not enabled for submission. Please contact System Admin!",
-                    httpRequest.getRequestURI()
-            );
-            return new ResponseEntity<>(errorResponse, HttpStatus.PRECONDITION_FAILED);
+                                if (wasFiltered) {
+                                    Optional.ofNullable(ctx.getTotalRecords())
+                                            .ifPresent(total -> System.out.println("Total records: " + total));
+                                    Optional.ofNullable(ctx.getFilteredRecords())
+                                            .ifPresent(submitted -> System.out.println("Submitted records: " + submitted));
+                                    Optional.ofNullable(ctx.getSearchFilter())
+                                            .ifPresent(search -> System.out.println("Search filter: " + search));
+                                    Optional.ofNullable(ctx.getRuleFilter())
+                                            .ifPresent(rules -> System.out.println("Applied rules: " + rules));
+                                }
+                            },
+                            () -> System.out.println("No filter context provided")
+                    );
+
+            // Resolve and validate report type
+            String reportType = resolveViewById(id);
+            System.out.println("Report type: " + reportType);
+
+            if (reportType == null) {
+                return createErrorResponse("CRB_098", "Invalid view ID: " + id,
+                        httpRequest.getRequestURI(), HttpStatus.NOT_FOUND);
+            }
+
+            if (!reportingService.reportEnabled(reportType)) {
+                return createErrorResponse("CRB_099",
+                        "This report is not enabled for submission. Please contact System Admin!",
+                        httpRequest.getRequestURI(), HttpStatus.PRECONDITION_FAILED);
+            }
+
+            // Process report
+            boolean submitted = reportingService.processReportAPIData(reportType, true);
+
+            if (submitted) {
+                return new ResponseEntity<>(
+                        new ApiResponse<>("00", "Successful", views, httpRequest.getRequestURI()),
+                        HttpStatus.OK
+                );
+            } else {
+                return createErrorResponse("CRB_100", "Report submission is still processing",
+                        httpRequest.getRequestURI(), HttpStatus.PROCESSING);
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error processing submit request: " + e.getMessage());
+            e.printStackTrace();
+
+            return createErrorResponse("CRB_080",
+                    e.getMessage() != null ? e.getMessage() : "Unknown error occurred",
+                    httpRequest.getRequestURI(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
-
-        boolean submitted = reportingService.processReportAPIData(reportType, true);
-        if (submitted) {
-            ApiResponse<?> response = new ApiResponse<>(
-                    "00",
-                    "Successful",
-                    views,
-                    httpRequest.getRequestURI()
-            );
-            return new ResponseEntity<>(response, HttpStatus.OK);
-        } else {
-            return new ResponseEntity<>(null, HttpStatus.PROCESSING);
-        }
-
-    } catch (Exception e) {
-        ApiResponse<Object> errorResponse = new ApiResponse<>(
-                "CRB_080",
-                "FAILED",
-                e.getMessage(),
-                httpRequest.getRequestURI()
-        );
-        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
-}
 
+    // Helper method to create consistent error responses
+    private ResponseEntity<ApiResponse<?>> createErrorResponse(String code, String message,
+                                                               String path, HttpStatus status) {
+        ApiResponse<Object> errorResponse = new ApiResponse<>(code, "FAILED", message, path);
+        return new ResponseEntity<>(errorResponse, status);
+    }
 
     @GetMapping("/views/{id}/summary")
     public ResponseEntity<ApiResponse<?>> getReportMetrics(@PathVariable String id, HttpServletRequest request) {
@@ -711,6 +804,7 @@ public ResponseEntity<ApiResponse<?>> submitViewData( @PathVariable String id,
     }
 
     @GetMapping("/views/{reportType}/submissions")
+    @Cacheable("reportSummary")
     public ResponseEntity<ApiResponse<?>> getSubmissionSummary(@PathVariable String reportType, @RequestParam(defaultValue = "1") int page,
                                                                @RequestParam(defaultValue = "100") int pageSize, HttpServletRequest request) {
         System.out.println("=================/views/{id}/submissions ============== " + reportType);
@@ -718,10 +812,11 @@ public ResponseEntity<ApiResponse<?>> submitViewData( @PathVariable String id,
         try {
 
             System.out.println("=================reportType ============== " + reportType);
-           // List<Map<String, Object>> data = new ArrayList<>();
+            // List<Map<String, Object>> data = new ArrayList<>();
+
             Map<String, Object> data = reportingService.getReportSummary();
             //data.add(report);
-            System.out.println("data "+ data);
+            System.out.println("data " + data);
             ApiResponse<?> response = new ApiResponse<>(
                     "00",
                     "Successful",
@@ -742,6 +837,7 @@ public ResponseEntity<ApiResponse<?>> submitViewData( @PathVariable String id,
     }
 
     @GetMapping("/report-types")
+    @Cacheable("reportTypes")
     public ApiResponse<Map<String, List<Map<String, String>>>> getReportTypes(HttpServletRequest request) {
         try {
             List<Map<String, String>> reportTypes = crbReportTypeRepository.getActiveReportTypesAsMap();
@@ -999,8 +1095,7 @@ public ResponseEntity<ApiResponse<?>> submitViewData( @PathVariable String id,
         logger.info("remoteUser: {}, remoteAddress: {}, remoteHost: {}, remotePort: {}", httpServletRequest.getRemoteUser(), httpServletRequest.getRemoteAddr(), httpServletRequest.getRemoteHost(), httpServletRequest.getRemotePort());
 
         try {
-             CRBDelinquencyResponseWrapper wrapper =
-                    delinquencyService.checkDelinquency(request, userId);
+            CRBDelinquencyResponseWrapper wrapper = delinquencyService.checkDelinquency(request, userId);
             if (wrapper == null) {
                 return ResponseEntity.ok(new CRBApiResponse(
                         "CRB_099",
@@ -1008,8 +1103,8 @@ public ResponseEntity<ApiResponse<?>> submitViewData( @PathVariable String id,
                         new CRBDelinquencyData()));
 
             }
-            logger.info("Wrapped  response {}",wrapper.getReport());
-            logger.info("Wrapped  response Data {}",wrapper.getReportData());
+            logger.info("Wrapped  response {}", wrapper.getReport());
+            logger.info("Wrapped  response Data {}", wrapper.getReportData());
             CRBApiResponse response = new CRBApiResponse(
                     "00",
                     "Success",
@@ -1038,7 +1133,6 @@ public ResponseEntity<ApiResponse<?>> submitViewData( @PathVariable String id,
         try {
 
             CRBDelinquencyResponseWrapper report = delinquencyService.checkDelinquencyById(crbDelinquencyRequest, userId);
-
             if (report == null) {
                 return ResponseEntity.ok(new CRBApiResponse(
                         "CRB_099",

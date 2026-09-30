@@ -210,8 +210,6 @@ private String buildRequestBody(String identityNumber, int loanAmount) {
     }
 
     public static String generateTimestamp() {
-        return java.time.format.DateTimeFormatter
-                .ofPattern("yyyyMMddHHmmssSSSSSS")
-                .format(java.time.LocalDateTime.now(java.time.Clock.systemUTC()));
+        return java.time.format.DateTimeFormatter .ofPattern("yyyyMMddHHmmssSSSSSS") .format(java.time.LocalDateTime.now(java.time.Clock.systemUTC()));
     }
 }

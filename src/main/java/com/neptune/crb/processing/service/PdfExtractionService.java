@@ -1,6 +1,6 @@
 package com.neptune.crb.processing.service;
-import java.util.regex.Pattern;
 
+import java.util.regex.Pattern;
 
 
 import com.neptune.crb.processing.model.CreditScoreData;
@@ -188,7 +188,6 @@ public class PdfExtractionService {
             }
 
             text = normalize(text);
-
             CreditScoreData data = new CreditScoreData();
 
             // =========================
@@ -200,25 +199,12 @@ public class PdfExtractionService {
             // =========================
             // IDENTITY BLOCK
             // =========================
-            data.setCustomerName(extractFirst(text,
-                    "Reported Names?:\\s*(.+)"
-            ));
+            data.setCustomerName(extractFirst(text, "Reported Names?:\\s*(.+)"));
+            data.setRegistrationNumber(extractFirst(text, "Company Reg No:\\s*([A-Z0-9/\\-]+)"));
 
-            data.setRegistrationNumber(extractFirst(text,
-                    "Company Reg No:\\s*([A-Z0-9/\\-]+)"
-            ));
-
-            data.setReportDate(extractFirst(text,
-                    "Report Date\\s*([0-9\\-: ]+)"
-            ));
-
-            data.setReferenceNumber(extractFirst(text,
-                    "Reference Number\\s*([A-Z0-9\\-]+)"
-            ));
-
-            data.setRequestingInstitution(extractFirst(text,
-                    "Requested By\\s*(.+?)\\s+Report Date"
-            ));
+            data.setReportDate(extractFirst(text, "Report Date\\s*([0-9\\-: ]+)"));
+            data.setReferenceNumber(extractFirst(text, "Reference Number\\s*([A-Z0-9\\-]+)"));
+            data.setRequestingInstitution(extractFirst(text, "Requested By\\s*(.+?)\\s+Report Date"));
 
             // =========================
             // CREDIT BEHAVIOR TABLE
@@ -264,8 +250,58 @@ public class PdfExtractionService {
             data.setPpi(m.group(2));
             data.setProbabilityOfDefault(m.group(3));
         }
+        if(data.getMetroScore()==null){
+            extractMetroScore(text,data);
+        }
+        if(data.getPpi()==null){
+            extractPpi(text,data);
+        }
+        if(data.getProbabilityOfDefault()==null){
+            extractProbabilityOfDefault(text,data);
+        }
     }
 
+    private void extractMetroScore(String text, CreditScoreData data) {
+//        Pattern p = Pattern.compile("Metro-Score\\s*[©]?\\s*(\\d+)",
+//                Pattern.CASE_INSENSITIVE);
+        Pattern p =    Pattern.compile(
+                "Metro-Score\\s*[©]?\\s*(\\d+)",
+                Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+        );
+
+        Matcher m = p.matcher(text);
+
+        if (m.find()) {
+            data.setMetroScore(m.group(1));
+        }
+    }
+    private void extractPpi(String text, CreditScoreData data) {
+
+//        Pattern p = Pattern.compile("PPI\\s*[©]?\\s*(M\\d+)",
+//                Pattern.CASE_INSENSITIVE);
+        Pattern p =  Pattern.compile(
+                "PPI\\s*[©]?\\s*(M\\d+)",
+                Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+        );
+
+        Matcher m = p.matcher(text);
+
+        if (m.find()) {
+            data.setPpi(m.group(1));
+        }
+    }
+    private void extractProbabilityOfDefault(String text, CreditScoreData data) {
+
+        Pattern p = Pattern.compile(
+                "Probability\\s+of\\s+Default\\s*(\\d+\\s*%)",
+                Pattern.CASE_INSENSITIVE);
+
+        Matcher m = p.matcher(text);
+
+        if (m.find()) {
+            data.setProbabilityOfDefault(m.group(1));
+        }
+    }
     // =========================
     // PPI INTERPRETATION
     // =========================
@@ -277,8 +313,7 @@ public class PdfExtractionService {
             case "M1" -> data.setPpiInterpretation("Excellent (0–10 days late)");
             case "M2" -> data.setPpiInterpretation("Good (11–20 days late)");
             case "M3" -> data.setPpiInterpretation("Moderate (21–30 days late)");
-            case "M4", "M5", "M6", "M7", "M8", "M9" ->
-                    data.setPpiInterpretation("High risk payment delays");
+            case "M4", "M5", "M6", "M7", "M8", "M9" -> data.setPpiInterpretation("High risk payment delays");
         }
     }
 
@@ -287,13 +322,9 @@ public class PdfExtractionService {
     // =========================
     private void extractCreditBehavior(String text, CreditScoreData data) {
 
-        Pattern rowPattern = Pattern.compile(
-                "Bank\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)",
-                Pattern.CASE_INSENSITIVE
-        );
+        Pattern rowPattern = Pattern.compile("Bank\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)", Pattern.CASE_INSENSITIVE);
 
         Matcher m = rowPattern.matcher(text);
-
         int total = 0, npl = 0, defaultHist = 0, clean = 0;
 
         while (m.find()) {
